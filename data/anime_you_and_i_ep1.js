@@ -1,7 +1,7 @@
 window.appData = window.appData || {};
 
-window.appData["anime_you_and_i_ep1_merged"] = {
-    title: "動畫：《相反的你和我》第1話 (最強合併完整版)",
+window.appData["anime_you_and_i_ep1"] = {
+    title: "動畫：《相反的你和我》第1話",
     items: [
         // ====== 【N5 級別】 基礎生活單字 ======
         { type: "vocab", level: "N5", jp: "挨拶", kana: "あいさつ", romaji: "aisatsu", zh: "打招呼", pos: "名詞", pitch: "[1]", example: { jp: "挨拶は世界を救うね。", kana: "あいさつはせかいをすくうね", romaji: "aisatsu wa sekai o sukuu ne", zh: "打招呼能拯救世界呢。" } },
@@ -96,4 +96,5 @@ window.appData["anime_you_and_i_ep1_merged"] = {
             explain: "「〜に決まっている」表示說話者充滿自信的斷定，意思是「一定是... / 當然是...」。口語常說成「〜に決まってる」或「〜に決まってんじゃん」。"
         }
     ]
+
 };
