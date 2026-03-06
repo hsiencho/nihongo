@@ -9,15 +9,15 @@ A web-based, mobile-friendly interactive learning application designed to help l
   <table border="0">
     <tr>
       <td align="center">
-        <img src="./image/image1.png" width="180" alt="Flashcards"><br>
+        <img src="./image/image1.png" width="250" alt="Flashcards"><br>
         <b>Flashcard Mode</b>
       </td>
       <td align="center">
-        <img src="./image/image2.png" width="180" alt="Quiz"><br>
+        <img src="./image/image2.png" width="250" alt="Quiz"><br>
         <b>Quiz Training</b>
       </td>
       <td align="center">
-        <img src="./image/image3.png" width="180" alt="Voice"><br>
+        <img src="./image/image3.png" width="250" alt="Voice"><br>
         <b>Voice Recognition</b>
       </td>
     </tr>
