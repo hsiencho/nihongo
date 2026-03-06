@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>日語全方位特訓系統</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        
+        <div class="top-bar">
+            <button id="btn-settings" class="icon-btn">⚙️ 測驗設定</button>
+        </div>
+
+        <div id="settings-panel" class="modal" style="display: none;">
+            <div class="modal-content">
+                <h3>⚙️ 測驗目標設定</h3>
+                <br>
+                <label>🎯 每種模式過關次數：</label>
+                <input type="number" id="target-count-input" min="1" max="10" value="2" style="width: 50px; font-size: 1.1rem; text-align: center;">
+                <br><br><br>
+                <button id="save-settings-btn" class="action-btn">💾 儲存並關閉</button>
+            </div>
+        </div>
+
+        <div id="home-menu" class="menu-container">
+            <h1>📚 日語特訓</h1>
+            <select id="theme-select">
+                <option value="song_megane">歌曲：《メガネを外して》</option>
+                <option value="song_hitoribotchi">歌曲：《ひとりぼっち東京》</option>
+                <option value="n5_vocab_99">N5必備單字</option>
+            </select>
+            
+            <div class="checkbox-group" id="level-checkboxes">
+                <label><input type="checkbox" value="N5" checked> N5 基礎</label>
+                <label><input type="checkbox" value="N4" checked> N4 初級</label>
+                <label><input type="checkbox" value="N3"> N3 中級</label>
+                <label><input type="checkbox" value="N2"> N2 中高</label>
+                <label><input type="checkbox" value="N1"> N1 高級</label>
+            </div>
+
+            <div style="margin-top: 30px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;">
+                <button id="view-cards-btn" class="action-btn" style="background: #0984e3;">📇 預習單字卡</button>
+                <button id="start-btn" class="action-btn" style="background: #00b894;">⚔️ 開始測驗特訓</button>
+            </div>
+        </div>
+
+        <div id="flashcard-container" style="display: none; width: 100%; flex-direction: column; flex: 1;">
+            <div class="hud">
+                <button class="back-btn go-home-btn icon-btn">🏠 返回</button>
+                <span id="card-progress-top">預習模式</span>
+            </div>
+
+            <div class="flashcard-wrapper">
+                <div class="flashcard" id="flashcard">
+                    <div class="card-content" onclick="flipCard()">
+                        <div class="card-front" id="card-front">
+                            <h2 id="card-jp-front" class="front-jp"></h2>
+                        </div>
+
+                        <div class="card-back" id="card-back">
+                            
+                            <div class="back-vocab-section clickable-area" onclick="playAudioCard('word', event)">
+                                <div class="word-header-container">
+                                    <div class="grid-left"></div>
+                                    <div id="card-jp-back" class="back-jp-main"></div>
+                                    <div class="badge-wrapper">
+                                        <div id="card-pos-back" class="pos-badge" style="display: none;"></div>
+                                        <div id="card-pitch" class="pitch-badge" style="display: none;"></div>
+                                    </div>
+                                </div>
+                                <div id="card-kana" class="kana-text"></div>
+                                <div id="card-romaji" class="romaji-text"></div>
+                                <div id="card-zh" class="zh-text"></div>
+                            </div>
+                            
+                            <div id="card-note" class="note-text" style="display: none; margin: 0 0.5rem;"></div>
+
+                            <hr>
+
+                            <div id="card-example-box" class="example-section clickable-area" onclick="playAudioCard('example', event)">
+                                <div id="card-ex-jp" class="ex-jp-text"></div>
+                                <div id="card-ex-kana" class="ex-kana-text"></div>
+                                <div id="card-ex-romaji" class="ex-romaji-text"></div>
+                                <div id="card-ex-zh" class="ex-zh-text"></div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="nav-buttons">
+                <button id="prev-card" class="nav-btn">⬅️</button>
+                <div class="nav-center-controls">
+                    <button id="flip-back-btn" class="flip-back-btn" onclick="resetCardToFront()">🔄 翻回正面</button>
+                    <span id="card-progress" class="index-text">1 / 1</span>
+                </div>
+                <button id="next-card" class="nav-btn">➡️</button>
+            </div>
+        </div>
+
+        <div id="game-container" style="display: none; width: 100%; flex-direction: column; flex: 1;">
+            <div class="hud">
+                <button class="back-btn go-home-btn icon-btn">🏠 放棄</button>
+                <span>剩餘目標: <span id="progress">0</span></span>
+                <button id="skip-btn" class="icon-btn" style="background: #ff7675; color: white;">⏭️ 跳過</button>
+            </div>
+
+            <div class="battle-area" id="question-area">
+                <div class="question-card">
+                    <div id="question-mode-label" style="color: var(--text-light); margin-bottom: 10px; font-weight: bold;"></div>
+                    <h2 id="enemy-word" style="font-size: 3rem; margin: 10px 0;"></h2>
+                    
+                    <button id="mic-btn" class="mic-btn" style="display: none;">🎤 按住說話</button>
+                    <p id="mic-status" style="color: var(--text-muted); font-size: 0.9rem; margin-top: 10px;"></p>
+                    
+                    <button id="replay-audio" class="play-audio-btn" style="display: none; margin: 10px auto; width: 80px; height: 80px; border-radius: 50%;">🔊</button>
+                </div>
+                <div class="controls" id="options-area"></div>
+            </div>
+
+            <div class="battle-area" id="explanation-area" style="display: none;">
+                <div class="question-card text-left">
+                    <h2 id="result-title" class="text-center" style="margin-bottom: 15px;"></h2>
+                    
+                    <div id="wrong-feedback-box" class="feedback-box" style="display: none;">
+                        <p class="danger-text">❌ 你的答案：</p>
+                        <p id="user-wrong-ans" style="margin-top: 5px;"></p>
+                    </div>
+                    
+                    <div class="explain-content">
+                        <p class="success-text">✅ 正確解答：</p>
+                        
+                        <div class="back-vocab-section clickable-area" onclick="playAudioCard('test-word', event)" style="background: var(--bg-color); border-radius: 1rem;">
+                            <div class="word-header-container">
+                                <div class="grid-left"></div>
+                                <h2 id="ex-jp" class="back-jp-main" style="font-size: 2.8rem; margin-bottom: 0;"></h2>
+                                <div class="badge-wrapper">
+                                    <div id="ex-pos" class="pos-badge" style="display: none;"></div>
+                                    <div id="ex-pitch" class="pitch-badge" style="display: none;"></div>
+                                </div>
+                            </div>
+                            <div id="ex-kana" class="kana-text" style="font-size: 1.5rem;"></div>
+                            <div id="ex-zh" class="zh-text" style="font-size: 1.3rem;"></div>
+                        </div>  
+
+                        <p id="ex-note" class="note-text" style="display: none; margin-top: 15px;"></p>
+                        
+                        <div id="test-example-box" class="example-section clickable-area" style="display: none; margin-top: 15px; background: var(--bg-color); border-radius: 1rem;" onclick="playAudioCard('test-example', event)">
+                            <div id="test-ex-jp" class="ex-jp-text"></div>
+                            <div id="test-ex-kana" class="ex-kana-text"></div>
+                            <div id="test-ex-romaji" class="ex-romaji-text"></div>
+                            <div id="test-ex-zh" class="ex-zh-text"></div>
+                        </div>
+                    </div>
+                </div>
+                <button id="next-btn" class="action-btn full-width">下一題 ➡️</button>
+            </div>
+        </div>
+
+        <div class="bottom-controls">
+            <span style="font-size: 0.9rem; font-weight: bold; color: var(--text-muted);">A</span>
+            <input type="range" id="font-scale-slider" min="0.7" max="1.4" step="0.05" value="1">
+            <span style="font-size: 1.4rem; font-weight: bold; color: var(--text-muted);">A</span>
+        </div>
+
+    </div>
+
+    <script src="data/song_megane.js"></script>
+    <script src="data/song_hitoribotchi.js"></script>
+    <script src="data/n5_vocab_99.js"></script>
+    
+    <script src="script.js"></script>
+</body>
+</html>
