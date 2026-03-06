@@ -5,7 +5,7 @@ A web-based, mobile-friendly interactive learning application designed to help l
 ## 📸 Preview
 
 
-![Japanese Training System Application Preview](./images/preview.png)
+![Japanese Training System Application Preview](./image/preview.png)
 
 ## ✨ Core Features
 
