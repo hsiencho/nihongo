@@ -1,7 +1,7 @@
 window.appData = window.appData || {};
 
 window.appData["n5_vocab_99"] = {
-    title: "JLPT N5 必備單字大全 (含重音)",
+    title: "JLPT N5 必備單字大全",
     items: [
         // ====== 【類別一：數字】 ======
         { type: "vocab", level: "N5", jp: "一", kana: "いち", romaji: "ichi", zh: "一", pos: "名詞", pitch: "[2]", example: { jp: "りんごを一つ買います。", kana: "りんごをひとつかいます", romaji: "ringo o hitotsu kaimasu", zh: "買一個蘋果。" } },
@@ -184,4 +184,5 @@ window.appData["n5_vocab_99"] = {
         { type: "vocab", level: "N5", jp: "安い", kana: "やすい", romaji: "yasui", zh: "便宜的", pos: "い形容詞", pitch: "[2]", example: { jp: "この服は安いです。", kana: "このふくはやすいです", romaji: "kono fuku wa yasui desu", zh: "這件衣服很便宜。" } },
         { type: "vocab", level: "N5", jp: "高い", kana: "たかい", romaji: "takai", zh: "貴的/高的", pos: "い形容詞", pitch: "[2]", example: { jp: "その時計は高いです。", kana: "そのとけいはたかいです", romaji: "sono tokei wa takai desu", zh: "那支手錶很貴。" } }
     ]
+
 };
