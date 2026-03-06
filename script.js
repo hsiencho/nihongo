@@ -463,25 +463,52 @@ document.addEventListener('keydown', function(event) {
     }
 });
 
+/**
+ * 遞迴檢查資料是否載入完成
+ * @param {number} retryCount 重試次數，防止無限循環
+ */
+function checkDataAndInit(retryCount = 0) {
+    const maxRetries = 50; // 最多等待 5 秒 (50 * 100ms)
+    
+    // 檢查 window.appData 是否已經被課程檔案填入資料
+    if (window.appData && Object.keys(window.appData).length > 0) {
+        console.log(`課程資料載入成功，共 ${Object.keys(window.appData).length} 個課程。`);
+        initThemeSelect(); // 資料到位了，才生成選單
+    } else if (retryCount < maxRetries) {
+        // 如果還沒資料，等 100 毫秒再檢查一次
+        setTimeout(() => checkDataAndInit(retryCount + 1), 100);
+    } else {
+        // 真的等太久了（超過 5 秒），顯示錯誤提示
+        console.error("逾時：無法載入課程資料。請檢查檔案路徑或 manifest.js 設定。");
+        initThemeSelect(); // 執行一次以顯示「暫無資料」的狀態
+    }
+}
+
+// 監聽 DOM 載入
+document.addEventListener('DOMContentLoaded', () => {
+    loadSettings(); // 載入字體大小、過關次數等設定
+    
+    // 不要直接執行 initThemeSelect，改用檢查機制
+    checkDataAndInit(); 
+});
+
+// --- 動態生成選單 (維持原樣，但增加防呆) ---
 function initThemeSelect() {
     const themeSelect = document.getElementById('theme-select');
-    if (!window.appData) return;
+    if (!themeSelect) return;
 
-    // 清空舊選項
-    themeSelect.innerHTML = '';
+    if (!window.appData || Object.keys(window.appData).length === 0) {
+        themeSelect.innerHTML = '<option value="">❌ 找不到課程資料</option>';
+        return;
+    }
 
-    // 自動抓取 window.appData 裡面的所有 Key
+    themeSelect.innerHTML = ''; // 清空
+
     Object.keys(window.appData).forEach(key => {
         const option = document.createElement('option');
         option.value = key;
-        // 優先顯示資料內定義的 title，若無則顯示 key
+        // 優先讀取資料裡的 title，沒有就顯示檔名 key
         option.innerText = window.appData[key].title || key;
         themeSelect.appendChild(option);
     });
 }
-
-// --- 2. 在頁面載入時執行 ---
-window.onload = () => {
-    loadSettings();
-    initThemeSelect(); // 執行動態加載
-};
