@@ -1,160 +1,178 @@
-:root {
-    --font-scale: 1;
-    --primary: #0984e3;
-    --success: #00b894;
-    --danger: #d63031;
-    --text-main: #2d3436;
-    --text-kana: #051024;
-    --text-muted: #636e72;
-    --text-light: #b2bec3;
-    --bg-color: #f0f4f8;
-    --card-bg: #ffffff;
-    --border-color: #dfe6e9;
-}
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>日語全方位特訓系統</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
 
-* {
-    box-sizing: border-box;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    margin: 0;
-    padding: 0;
-}
+        <div id="settings-panel" class="modal" style="display: none;">
+            <div class="modal-content">
+                <h3>⚙️ 測驗目標設定</h3>
+                <br>
+                <label>🎯 每種模式過關次數：</label>
+                <input type="number" id="target-count-input" min="1" max="10" value="2" style="width: 50px; font-size: 1.1rem; text-align: center;">
+                <br><br><br>
+                <button id="save-settings-btn" class="action-btn">💾 儲存並關閉</button>
+            </div>
+        </div>
 
-html {
-    font-size: calc(16px * var(--font-scale));
-}
+        <div id="home-menu" class="menu-container">
 
-body {
-    background-color: var(--bg-color);
-    color: var(--text-main);
-    display: flex;
-    justify-content: center;
-    height: 100vh;
-    overflow: hidden;
-}
+            <div class="top-bar">
+                <button id="btn-settings" class="icon-btn">⚙️ 測驗設定</button>
+            </div>
 
-.app-container {
-    width: 100%;
-    max-width: 600px;
-    display: flex;
-    flex-direction: column;
-    padding: 10px;
-    height: 100%;
-}
+            <h1>📚 日語特訓</h1>
+            <select id="theme-select">
+                <option value="song_megane">歌曲：《メガネを外して》</option>
+                <option value="song_hitoribotchi">歌曲：《ひとりぼっち東京》</option>
+                <option value="n5_vocab_99">N5必備單字</option>
+            </select>
+            
+            <div class="checkbox-group" id="level-checkboxes">
+                <label><input type="checkbox" value="N5" checked> N5 基礎</label>
+                <label><input type="checkbox" value="N4" checked> N4 初級</label>
+                <label><input type="checkbox" value="N3"> N3 中級</label>
+                <label><input type="checkbox" value="N2"> N2 中高</label>
+                <label><input type="checkbox" value="N1"> N1 高級</label>
+            </div>
 
-/* 頂部控制列 */
-.top-bar { display: flex; justify-content: flex-end; padding: 5px 0 10px 0; flex-shrink: 0; }
-.hud { display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; background: var(--card-bg); border-radius: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); font-weight: bold; margin-bottom: 12px; flex-shrink: 0;}
+            <div style="margin-top: 30px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;">
+                <button id="view-cards-btn" class="action-btn" style="background: #0984e3;">📇 預習單字卡</button>
+                <button id="start-btn" class="action-btn" style="background: #00b894;">⚔️ 開始測驗特訓</button>
+            </div>
+        </div>
 
-/* 元件與按鈕 */
-.icon-btn { background: none; border: none; font-size: 1.2rem; cursor: pointer; padding: 5px 10px; border-radius: 8px; transition: 0.2s; }
-.icon-btn:hover { background: #dfe6e9; }
-.action-btn { background: var(--primary); color: white; border: none; padding: 12px 20px; border-radius: 12px; font-size: 1.1rem; cursor: pointer; font-weight: bold; transition: 0.2s; }
-.action-btn:active { transform: scale(0.96); }
-.full-width { width: 100%; margin-top: 15px; }
+        <div id="flashcard-container" style="display: none; width: 100%; flex-direction: column; flex: 1;">
+            <div class="hud">
+                <button class="back-btn go-home-btn icon-btn">🏠 返回</button>
+                <span id="card-progress-top">預習模式</span>
+            </div>
 
-/* 首頁選單 */
-.menu-container { display: flex; flex-direction: column; align-items: center; text-align: center; flex: 1; justify-content: center; overflow-y: auto; }
-.menu-container h1 { margin-bottom: 20px; font-size: 2rem; }
-#theme-select { width: 100%; max-width: 350px; padding: 12px; border-radius: 10px; border: 2px solid var(--border-color); font-size: 1rem; margin-bottom: 15px; }
-.checkbox-group { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; max-width: 400px; margin-top: 10px; }
-.checkbox-group label { background: var(--card-bg); padding: 8px 15px; border-radius: 20px; border: 1px solid var(--border-color); cursor: pointer; }
+            <div class="flashcard-wrapper">
+                <div class="flashcard" id="flashcard">
+                    <div class="card-content" onclick="flipCard()">
+                        <div class="card-front" id="card-front">
+                            <h2 id="card-jp-front" class="front-jp"></h2>
+                        </div>
 
-/* --- 單字卡專屬樣式 --- */
-.flashcard-wrapper {
-    flex: 1; display: flex; flex-direction: column; align-items: center; overflow: hidden; padding-bottom: 10px;
-}
-.flashcard {
-    background-color: var(--card-bg); width: 100%; height: 100%; border-radius: 1.5rem; box-shadow: 0 10px 25px rgba(0,0,0,0.08); border: 2px solid var(--border-color); display: flex; flex-direction: column; overflow: hidden;
-}
-.card-content {
-    flex: 1; overflow-y: auto; display: flex; flex-direction: column; cursor: pointer; -webkit-tap-highlight-color: transparent;
-}
-.card-front {
-    display: flex; flex-direction: column; justify-content: center; align-items: center; flex: 1; padding: 2rem; text-align: center;
-}
-.front-jp { font-size: 4.5rem; color: var(--text-main); font-weight: bold; }
-.card-back {
-    display: none; flex-direction: column; padding: 2rem 1.5rem; flex: 1; cursor: default;
-}
+                        <div class="card-back" id="card-back">
+                            
+                            <div class="back-vocab-section clickable-area" onclick="playAudioCard('word', event)">
+                                <div class="word-header-container">
+                                    <div class="grid-left"></div>
+                                    <div id="card-jp-back" class="back-jp-main"></div>
+                                    <div class="badge-wrapper">
+                                        <div id="card-pos-back" class="pos-badge" style="display: none;"></div>
+                                        <div id="card-pitch" class="pitch-badge" style="display: none;"></div>
+                                    </div>
+                                </div>
+                                <div id="card-kana" class="kana-text"></div>
+                                <div id="card-romaji" class="romaji-text"></div>
+                                <div id="card-zh" class="zh-text"></div>
+                            </div>
+                            
+                            <div id="card-note" class="note-text" style="display: none; margin: 0 0.5rem;"></div>
 
-.clickable-area { cursor: pointer; border-radius: 1rem; transition: background-color 0.2s; -webkit-tap-highlight-color: transparent; }
-.clickable-area:active { background-color: #f5f6fa; }
+                            <hr>
 
-.back-vocab-section { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.3rem; padding: 1rem 0; }
-.word-header-container { display: grid; grid-template-columns: 1fr auto 1fr; width: 100%; align-items: center; margin-bottom: 0.5rem; }
-.back-jp-main { grid-column: 2; font-size: 3.5rem; font-weight: bold; color: var(--text-main); line-height: 1.1; }
-.badge-wrapper { grid-column: 3; justify-self: start; padding-left: 0.8rem; }
-.pos-badge { font-size: 1rem; color: #ffffff; font-weight: bold; padding: 0.4rem 0.8rem; border-radius: 0.8rem; white-space: nowrap; }
+                            <div id="card-example-box" class="example-section clickable-area" onclick="playAudioCard('example', event)">
+                                <div id="card-ex-jp" class="ex-jp-text"></div>
+                                <div id="card-ex-kana" class="ex-kana-text"></div>
+                                <div id="card-ex-romaji" class="ex-romaji-text"></div>
+                                <div id="card-ex-zh" class="ex-zh-text"></div>
+                            </div>
 
-/* 針對讀音的設定 */
-.kana-text { font-size: 1.8rem; color: var(--text-kana); font-weight: bold; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; }
-.romaji-text { font-family: monospace; color: var(--text-light); font-size: 1.1rem; }
-.zh-text { font-size: 1.6rem; color: var(--text-main); font-weight: bold; margin-top: 0.5rem; }
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-hr { border: 0; border-top: 2px solid var(--border-color); margin: 1.5rem 0; }
+            <div class="nav-buttons">
+                <button id="prev-card" class="nav-btn">⬅️</button>
+                <div class="nav-center-controls">
+                    <button id="flip-back-btn" class="flip-back-btn" onclick="resetCardToFront()">🔄 翻回正面</button>
+                    <span id="card-progress" class="index-text">1 / 1</span>
+                </div>
+                <button id="next-card" class="nav-btn">➡️</button>
+            </div>
+        </div>
 
-.example-section { display: flex; flex-direction: column; align-items: flex-start; text-align: left; gap: 0.3rem; padding: 1rem 0.5rem; }
-.ex-jp-text { font-size: 1.3rem; font-weight: bold; color: var(--text-main); line-height: 1.4; margin-bottom: 0.3rem; }
-.ex-kana-text { font-size: 1.05rem; color: var(--text-kana); font-weight: bold; }
-.ex-romaji-text { font-family: monospace; font-size: 0.9rem; color: var(--text-light); }
-.ex-zh-text { font-size: 1.1rem; color: var(--text-muted); margin-top: 0.3rem; }
-.note-text { font-size: 0.95rem; color: #636e72; background: #f5f6fa; padding: 10px; border-radius: 8px; margin-top: 10px; text-align: left; border-left: 4px solid var(--primary); }
+        <div id="game-container" style="display: none; width: 100%; flex-direction: column; flex: 1;">
+            <div class="hud">
+                <button class="back-btn go-home-btn icon-btn">🏠 放棄</button>
+                <span>剩餘目標: <span id="progress">0</span></span>
+                <button id="skip-btn" class="icon-btn" style="background: #ff7675; color: white;">⏭️ 跳過</button>
+            </div>
 
-.nav-buttons { display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 10px 0; flex-shrink: 0; }
-.nav-btn { background-color: #ffffff; border: 2px solid var(--border-color); font-size: 1.8rem; cursor: pointer; padding: 0.6rem 2.5rem; color: var(--primary); transition: 0.2s; border-radius: 1rem; box-shadow: 0 4px 0 var(--border-color); display: flex; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent; }
-.nav-btn:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 0 0 var(--primary); }
-.nav-btn:disabled { color: #dcdde1; border-color: #f5f6fa; box-shadow: 0 4px 0 #f5f6fa; cursor: not-allowed; }
-.nav-center-controls { display: flex; flex-direction: column; align-items: center; gap: 5px; }
-.flip-back-btn { background: none; border: none; color: var(--primary); font-size: 1.2rem; cursor: pointer; font-weight: bold; display: none; }
-.flip-back-btn:hover { text-decoration: underline; }
+            <div class="battle-area" id="question-area">
+                <div class="question-card">
+                    <div id="question-mode-label" style="color: var(--text-light); margin-bottom: 10px; font-weight: bold;"></div>
+                    <h2 id="enemy-word" style="font-size: 3rem; margin: 10px 0;"></h2>
+                    
+                    <button id="mic-btn" class="mic-btn" style="display: none;">🎤 按住說話</button>
+                    <p id="mic-status" style="color: var(--text-muted); font-size: 0.9rem; margin-top: 10px;"></p>
+                    
+                    <button id="replay-audio" class="play-audio-btn" style="display: none; margin: 10px auto; width: 80px; height: 80px; border-radius: 50%;">🔊</button>
+                </div>
+                <div class="controls" id="options-area"></div>
+            </div>
 
-.battle-area { flex: 1; display: flex; flex-direction: column; overflow-y: auto; padding-bottom: 20px;}
-.question-card { background: var(--card-bg); padding: 30px 20px; border-radius: 20px; box-shadow: 0 8px 16px rgba(0,0,0,0.05); text-align: center; margin-bottom: 20px; flex-shrink: 0;}
-.controls { display: flex; flex-direction: column; gap: 12px; }
+            <div class="battle-area" id="explanation-area" style="display: none;">
+                <div class="question-card text-left">
+                    <h2 id="result-title" class="text-center" style="margin-bottom: 15px;"></h2>
+                    
+                    <div id="wrong-feedback-box" class="feedback-box" style="display: none;">
+                        <p class="danger-text">❌ 你的答案：</p>
+                        <p id="user-wrong-ans" style="margin-top: 5px;"></p>
+                    </div>
+                    
+                    <div class="explain-content">
+                        <p class="success-text">✅ 正確解答：</p>
+                        
+                        <div class="back-vocab-section clickable-area" onclick="playAudioCard('test-word', event)" style="background: var(--bg-color); border-radius: 1rem;">
+                            <div class="word-header-container">
+                                <div class="grid-left"></div>
+                                <h2 id="ex-jp" class="back-jp-main" style="font-size: 2.8rem; margin-bottom: 0;"></h2>
+                                <div class="badge-wrapper">
+                                    <div id="ex-pos" class="pos-badge" style="display: none;"></div>
+                                    <div id="ex-pitch" class="pitch-badge" style="display: none;"></div>
+                                </div>
+                            </div>
+                            <div id="ex-kana" class="kana-text" style="font-size: 1.5rem;"></div>
+                            <div id="ex-zh" class="zh-text" style="font-size: 1.3rem;"></div>
+                        </div>  
 
-.audio-option-row { display: flex; gap: 10px; align-items: center; width: 100%; }
-.play-audio-btn { flex: 0 0 60px; height: 60px; border-radius: 15px; background: #74b9ff; color: white; border: none; font-size: 1.5rem; cursor: pointer; box-shadow: 0 4px 0 #0984e3; }
-.play-audio-btn:active { transform: translateY(4px); box-shadow: none; }
-.select-ans-btn { flex: 1; background: var(--card-bg); color: var(--text-main); border: 2px solid var(--border-color); padding: 15px; border-radius: 15px; font-size: 1.1rem; cursor: pointer; font-weight: bold; }
-.select-ans-btn:active { background: #f5f6fa; }
+                        <p id="ex-note" class="note-text" style="display: none; margin-top: 15px;"></p>
+                        
+                        <div id="test-example-box" class="example-section clickable-area" style="display: none; margin-top: 15px; background: var(--bg-color); border-radius: 1rem;" onclick="playAudioCard('test-example', event)">
+                            <div id="test-ex-jp" class="ex-jp-text"></div>
+                            <div id="test-ex-kana" class="ex-kana-text"></div>
+                            <div id="test-ex-romaji" class="ex-romaji-text"></div>
+                            <div id="test-ex-zh" class="ex-zh-text"></div>
+                        </div>
+                    </div>
+                </div>
+                <button id="next-btn" class="action-btn full-width">下一題 ➡️</button>
+            </div>
+        </div>
 
-.mic-btn { background: #ff7675; color: white; border: none; padding: 15px 30px; border-radius: 30px; font-size: 1.2rem; cursor: pointer; font-weight: bold; box-shadow: 0 5px 15px rgba(255, 118, 117, 0.4); margin-top: 20px; transition: 0.2s; display: inline-block;}
-.mic-btn:active { transform: scale(0.95); background: #d63031; }
+        <div class="bottom-controls">
+            <span style="font-size: 0.9rem; font-weight: bold; color: var(--text-muted);">A</span>
+            <input type="range" id="font-scale-slider" min="0.7" max="1.4" step="0.05" value="1">
+            <span style="font-size: 1.4rem; font-weight: bold; color: var(--text-muted);">A</span>
+        </div>
 
-.text-left { text-align: left; }
-.text-center { text-align: center; }
-.success-text { color: var(--success); font-weight: bold; margin: 0 0 5px 0; }
-.danger-text { color: var(--danger); font-weight: bold; margin: 0; }
-.feedback-box { background: #ffeaa7; padding: 12px; border-radius: 10px; margin-bottom: 15px; }
+    </div>
 
-.modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 100; }
-.modal-content { background: var(--card-bg); padding: 30px; border-radius: 20px; width: 90%; max-width: 400px; text-align: center; }
-
-.bottom-controls { width: 100%; display: flex; align-items: center; justify-content: center; gap: 1rem; margin-top: auto; background: var(--card-bg); padding: 0.8rem 1.5rem; border-radius: 1rem; box-shadow: 0 -2px 10px rgba(0,0,0,0.03); border: 2px solid var(--border-color); flex-shrink: 0; }
-#font-scale-slider { flex: 1; cursor: pointer; }
-
-/* --- 辭典風重音標示法 --- */
-.mora {
-    display: inline-block;
-    position: relative;
-    padding: 0 1px; /* 微調間距讓紅線相連 */
-    margin-top: 8px; /* 預留上方畫線的空間 */
-    border-top: 3px solid transparent; 
-    line-height: 1.2;
-}
-
-/* 高音拍：上方畫紅線 */
-.pitch-high {
-    border-top: 3px solid #e74c3c;
-}
-
-/* 音調下降點：在右側畫一條垂直短線 */
-.pitch-drop::after {
-    content: '';
-    position: absolute;
-    top: -3px; 
-    right: -2px; 
-    width: 3px;
-    height: 50%; 
-    background-color: #e74c3c;
-}
+    <script src="data/song_megane.js"></script>
+    <script src="data/song_hitoribotchi.js"></script>
+    <script src="data/n5_vocab_99.js"></script>
+    
+    <script src="script.js"></script>
+</body>
+</html>
