@@ -5,7 +5,33 @@ A web-based, mobile-friendly interactive learning application designed to help l
 ## 📸 Preview
 
 
-![Japanese Training System Application Preview](./image/preview.png)
+<div align="center">
+  <table border="0">
+    <tr>
+      <td align="center">
+        <a href="https://hsiencho.github.io/nihongo/index.html">
+          <img src="./images/image1.png" width="180" alt="Flashcards"><br>
+          <b>Flashcard Mode</b>
+        </a>
+      </td>
+      <td align="center">
+        <a href="https://hsiencho.github.io/nihongo/index.html">
+          <img src="./images/image2.png" width="180" alt="Quiz"><br>
+          <b>Quiz Training</b>
+        </a>
+      </td>
+      <td align="center">
+        <a href="https://hsiencho.github.io/nihongo/index.html">
+          <img src="./images/image3.png" width="180" alt="Voice"><br>
+          <b>Voice Recognition</b>
+        </a>
+      </td>
+    </tr>
+  </table>
+  <p><i>(Responsive Layout: Horizontal on PC, Vertical on Mobile)</i></p>
+</div>
+
+---
 
 ## ✨ Core Features
 
