@@ -462,3 +462,26 @@ document.addEventListener('keydown', function(event) {
         }
     }
 });
+
+function initThemeSelect() {
+    const themeSelect = document.getElementById('theme-select');
+    if (!window.appData) return;
+
+    // 清空舊選項
+    themeSelect.innerHTML = '';
+
+    // 自動抓取 window.appData 裡面的所有 Key
+    Object.keys(window.appData).forEach(key => {
+        const option = document.createElement('option');
+        option.value = key;
+        // 優先顯示資料內定義的 title，若無則顯示 key
+        option.innerText = window.appData[key].title || key;
+        themeSelect.appendChild(option);
+    });
+}
+
+// --- 2. 在頁面載入時執行 ---
+window.onload = () => {
+    loadSettings();
+    initThemeSelect(); // 執行動態加載
+};
