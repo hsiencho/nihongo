@@ -31,7 +31,7 @@
             
             <div class="checkbox-group" id="level-checkboxes">
                 <label><input type="checkbox" value="N5" checked> N5 基礎</label>
-                <label><input type="checkbox" value="N4"> N4 初級</label>
+                <label><input type="checkbox" value="N4" checked> N4 初級</label>
                 <label><input type="checkbox" value="N3"> N3 中級</label>
                 <label><input type="checkbox" value="N2"> N2 中高</label>
                 <label><input type="checkbox" value="N1"> N1 高級</label>
@@ -165,11 +165,19 @@
 
     </div>
 
-    <script src="data/song_megane.js"></script>
-    <script src="data/song_hitoribotchi.js"></script>
-    <script src="data/n5_vocab_99.js"></script>
-    
+    <script src="data/manifest.js"></script>
+
+    <script>
+        if (window.courseList) {
+            window.courseList.forEach(fileName => {
+                const script = document.createElement('script');
+                script.src = `data/${fileName}`;
+                script.async = false; // 盡量按順序，減少衝突
+                document.head.appendChild(script);
+            });
+        }
+    </script>
+
     <script src="script.js"></script>
 </body>
 </html>
-
