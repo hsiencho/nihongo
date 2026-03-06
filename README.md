@@ -28,7 +28,6 @@ A web-based, mobile-friendly interactive learning application designed to help l
       </td>
     </tr>
   </table>
-  <p><i>(Responsive Layout: Horizontal on PC, Vertical on Mobile)</i></p>
 </div>
 
 ---
