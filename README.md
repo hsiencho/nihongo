@@ -8,16 +8,16 @@ A web-based, mobile-friendly interactive learning application designed to help l
 <div align="center">
   <table border="0">
     <tr>
-      <td align="center">
-        <img src="./image/image1.png" width="300" alt="Flashcards"><br>
+      <td align="center" valign="top" width="33%">
+        <img src="./image/image1.png" width="300"><br>
         <b>Home Menu</b>
       </td>
-      <td align="center">
-        <img src="./image/image2.png" width="300" alt="Quiz"><br>
+      <td align="center" valign="top" width="33%">
+        <img src="./image/image2.png" width="300"><br>
         <b>Flashcard Mode</b>
       </td>
-      <td align="center">
-        <img src="./image/image3.png" width="300" alt="Voice"><br>
+      <td align="center" valign="top" width="33%">
+        <img src="./image/image3.png" width="300"><br>
         <b>Quiz Feedback</b>
       </td>
     </tr>
