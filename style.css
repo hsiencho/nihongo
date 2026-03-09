@@ -46,7 +46,7 @@ html {
 }
 
 /* 頂部控制列 */
-.top-bar { display: flex; justify-content: flex-end; padding: 5px 0 10px 0; flex-shrink: 0; }
+.top-bar { display: none; }
 .hud { display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; background: var(--card-bg); border-radius: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); font-weight: bold; margin-bottom: 12px; flex-shrink: 0;}
 
 /* 元件與按鈕 */
@@ -59,7 +59,26 @@ html {
 /* 首頁選單 */
 .menu-container { display: flex; flex-direction: column; align-items: center; text-align: center; flex: 1; justify-content: center; overflow-y: auto; }
 .menu-container h1 { margin-bottom: 20px; font-size: 2rem; }
-#theme-select { width: 100%; max-width: 350px; padding: 12px; border-radius: 10px; border: 2px solid var(--border-color); font-size: 1rem; margin-bottom: 15px; }
+#theme-select, #home-tag-select { 
+    width: 100%; max-width: 350px; padding: 12px; border-radius: 10px; 
+    border: 2px solid var(--border-color); font-size: 1rem; margin-bottom: 10px; 
+}
+
+/* 首頁按鈕群組 */
+.main-menu-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    width: 100%;
+    max-width: 320px;
+    margin-top: 30px;
+}
+
+.main-menu-actions .action-btn {
+    width: 100%;
+    position: relative;
+}
+
 .checkbox-group { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; max-width: 400px; margin-top: 10px; }
 .checkbox-group label { background: var(--card-bg); padding: 8px 15px; border-radius: 20px; border: 1px solid var(--border-color); cursor: pointer; }
 
@@ -187,4 +206,112 @@ hr { border: 0; border-top: 2px solid var(--border-color); margin: 1.5rem 0; }
     .bottom-controls {
         padding: 0.5rem 1rem; /* 縮小底部控制器 */
     }
+}
+
+/* 將原本的頂部控制列隱藏 */
+.top-bar { display: none; }
+
+/* 元件與按鈕基底更淺的顏色設定已直接套用於 inline-style 中，這邊調整細節 */
+#theme-select, #home-tag-select { 
+    width: 100%; max-width: 350px; padding: 12px; border-radius: 10px; 
+    border: 2px solid var(--border-color); font-size: 1rem; margin-bottom: 10px; 
+}
+
+/* 首頁按鈕群組 */
+.main-menu-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    width: 100%;
+    max-width: 320px;
+    margin-top: 30px;
+}
+
+.main-menu-actions .action-btn {
+    width: 100%;
+    position: relative;
+    color: var(--text-main); /* 因為底色變淺，文字改回深色以利閱讀 */
+}
+
+/* 特別調整主按鈕字體顏色，如果覺得不夠明顯可以改回 white */
+#view-cards-btn, #start-btn, #daily-btn {
+    color: #2d3436; 
+}
+
+/* 隱藏原生頂部工具列 */
+.top-bar { display: none; }
+
+#theme-select, #home-tag-select { 
+    width: 100%; max-width: 350px; padding: 12px; border-radius: 10px; 
+    border: 2px solid var(--border-color); font-size: 1rem; margin-bottom: 10px; 
+}
+
+/* 首頁按鈕群組 */
+.main-menu-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    width: 100%;
+    max-width: 320px;
+    margin-top: 30px;
+}
+
+.main-menu-actions .action-btn {
+    width: 100%;
+}
+
+/* === 新增：無背景按鈕 === */
+.ghost-btn {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: bold;
+    transition: 0.2s;
+    padding: 5px 10px;
+    border-radius: 8px;
+}
+.ghost-btn:hover {
+    background: rgba(0,0,0,0.05);
+}
+
+/* --- 按鈕疊加效果設定 --- */
+
+/* 外層容器：作為絕對定位的基準點 */
+.action-btn-wrapper {
+    position: relative;
+    width: 100%;
+    display: flex; 
+}
+
+/* 疊加在右側的按鈕 (測驗設定齒輪) */
+.overlay-icon-btn {
+    position: absolute;
+    right: 8px; /* 固定在距離右邊 8px 的位置 */
+    top: 50%;
+    transform: translateY(-50%); /* 垂直置中 */
+    background: rgba(255, 255, 255, 0.4); /* 半透明底色，讓它看起來是個小按鈕 */
+    border: none;
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 1.2rem;
+    cursor: pointer;
+    z-index: 10;
+    transition: 0.2s;
+}
+.overlay-icon-btn:hover {
+    background: rgba(255, 255, 255, 0.8);
+}
+
+/* 疊加在右側的純文字標籤 (每日挑戰狀態 ❌/✅) */
+.overlay-icon-text {
+    position: absolute;
+    right: 15px; /* 固定在距離右邊 15px 的位置 */
+    top: 50%;
+    transform: translateY(-50%); /* 垂直置中 */
+    font-size: 1.3rem;
+    pointer-events: none; /* ❗穿透點擊：確保點擊符號時，還是算點到下面的「每日挑戰」按鈕 */
+    z-index: 10;
 }
