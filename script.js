@@ -6,6 +6,20 @@ let passTarget = 2; // 動態過關次數
 let totalTargetPoints = 0; 
 let currentPoints = 0; 
 
+// --- 新增：模式設定狀態 ---
+let activeModesConfig = {
+    voice: true,
+    audioMatch: true,
+    listen: true,
+    zhToJp: false // 預設關閉
+};
+
+// 輔助函式：取得完整的日文（處理文法題沒有 jp 屬性的問題）
+function getFullJp(item) {
+    if (!item) return "";
+    return item.type === 'grammar' ? item.q.replace("( ____ )", item.ans) : item.jp;
+}
+
 // --- 設定與本地儲存 ---
 function loadSettings() {
     let savedScale = localStorage.getItem('fontScale') || 1;
@@ -14,6 +28,22 @@ function loadSettings() {
     document.getElementById('font-scale-slider').value = savedScale;
     document.getElementById('target-count-input').value = savedTarget;
     passTarget = parseInt(savedTarget);
+
+    // 讀取模式設定
+    activeModesConfig.voice = localStorage.getItem('modeVoice') !== 'false';
+    activeModesConfig.audioMatch = localStorage.getItem('modeAudioMatch') !== 'false';
+    activeModesConfig.listen = localStorage.getItem('modeListen') !== 'false';
+    activeModesConfig.zhToJp = localStorage.getItem('modeZhToJp') === 'true';
+
+    // 更新 UI Checkbox
+    const v = document.getElementById('setting-mode-voice');
+    if(v) v.checked = activeModesConfig.voice;
+    const a = document.getElementById('setting-mode-audioMatch');
+    if(a) a.checked = activeModesConfig.audioMatch;
+    const l = document.getElementById('setting-mode-listen');
+    if(l) l.checked = activeModesConfig.listen;
+    const z = document.getElementById('setting-mode-zhToJp');
+    if(z) z.checked = activeModesConfig.zhToJp;
 }
 loadSettings();
 
@@ -28,6 +58,18 @@ document.getElementById('save-settings-btn').onclick = () => {
     let target = document.getElementById('target-count-input').value;
     localStorage.setItem('passTarget', target);
     passTarget = parseInt(target);
+
+    // 儲存模式設定
+    activeModesConfig.voice = document.getElementById('setting-mode-voice').checked;
+    activeModesConfig.audioMatch = document.getElementById('setting-mode-audioMatch').checked;
+    activeModesConfig.listen = document.getElementById('setting-mode-listen').checked;
+    activeModesConfig.zhToJp = document.getElementById('setting-mode-zhToJp').checked;
+
+    localStorage.setItem('modeVoice', activeModesConfig.voice);
+    localStorage.setItem('modeAudioMatch', activeModesConfig.audioMatch);
+    localStorage.setItem('modeListen', activeModesConfig.listen);
+    localStorage.setItem('modeZhToJp', activeModesConfig.zhToJp);
+
     document.getElementById('settings-panel').style.display = 'none';
 };
 
@@ -60,9 +102,13 @@ function initSession(type) {
 
     if (selectedLevels.length === 0) return alert("請至少選擇一個難度！");
 
+    // 計算啟用了幾個模式
+    let activeModesCount = Object.values(activeModesConfig).filter(v => v).length;
+    if (type === 'test' && activeModesCount === 0) return alert("請至設定中至少開啟一種測驗模式！");
+
     currentPool = themeData.filter(item => selectedLevels.includes(item.level)).map(item => ({
         ...item,
-        progress: { voice: 0, audioMatch: 0, listen: 0 } 
+        progress: { voice: 0, audioMatch: 0, listen: 0, zhToJp: 0 } 
     }));
 
     if (currentPool.length === 0) return alert("抱歉，該難度下目前沒有題目資料喔！");
@@ -74,25 +120,23 @@ function initSession(type) {
         initFlashcards();
     } else {
         document.getElementById('game-container').style.display = 'flex';
-        totalTargetPoints = currentPool.length * 3 * passTarget; 
+        // 目標總分 = 題目數 * 啟用的模式數量 * 過關次數
+        totalTargetPoints = currentPool.length * activeModesCount * passTarget; 
         currentPoints = 0;
         nextTestQuestion();
     }
 }
 
 // --- 詞性顏色與重音生成器 ---
-
-// 根據詞性回傳顏色
 function getPosColor(pos) {
     if (!pos) return '#636e72';
-    if (pos.includes('動詞')) return '#ff7675'; // 紅色
-    if (pos.includes('名詞')) return '#74b9ff'; // 藍色
-    if (pos.includes('形容詞')) return '#55efc4'; // 綠色
-    if (pos.includes('副詞')) return '#ffeaa7'; // 黃色
-    return '#a29bfe'; // 預設紫色
+    if (pos.includes('動詞')) return '#ff7675'; 
+    if (pos.includes('名詞')) return '#74b9ff'; 
+    if (pos.includes('形容詞')) return '#55efc4'; 
+    if (pos.includes('副詞')) return '#ffeaa7'; 
+    return '#a29bfe'; 
 }
 
-// 動態生成帶有重音線條的 HTML
 function generatePitchHTML(kana, pitchStr) {
     if (!kana) return "";
     if (!pitchStr) return `<span class="mora">${kana}</span>`;
@@ -100,7 +144,6 @@ function generatePitchHTML(kana, pitchStr) {
     let pitchNum = parseInt(pitchStr.replace(/[^0-9]/g, ''), 10);
     if (isNaN(pitchNum)) return `<span class="mora">${kana}</span>`;
 
-    // 1. 切割音拍 (Mora) - 處理拗音和長音
     let moras = [];
     for (let i = 0; i < kana.length; i++) {
         let char = kana[i];
@@ -111,21 +154,17 @@ function generatePitchHTML(kana, pitchStr) {
         }
     }
 
-    // 2. 判斷每一個音拍的高低並生成 HTML
     let html = '';
     for (let i = 0; i < moras.length; i++) {
         let isHigh = false;
         let isDrop = false;
-        let m = i + 1; // 這是第幾個音拍 (1-based)
+        let m = i + 1; 
 
         if (pitchNum === 0) {
-            // 平板型 (0): 第1拍低，第2拍起全高
             if (m > 1) isHigh = true;
         } else if (pitchNum === 1) {
-            // 頭高型 (1): 第1拍高，之後全低，且第1拍後下降
             if (m === 1) { isHigh = true; isDrop = true; }
         } else {
-            // 中高/尾高型: 第1拍低，第2拍到第N拍高，第N拍後下降
             if (m > 1 && m <= pitchNum) isHigh = true;
             if (m === pitchNum) isDrop = true;
         }
@@ -152,9 +191,13 @@ function renderCard() {
     
     let frontText = item.type === 'grammar' ? item.q.replace("( ____ )", "___") : item.jp;
     document.getElementById('card-jp-front').innerText = frontText;
-    document.getElementById('card-jp-back').innerText = item.jp;
     
-    // 詞性標籤與顏色
+    // 解決文法字太多跑版的問題
+    let backJpText = getFullJp(item);
+    let cardJpBack = document.getElementById('card-jp-back');
+    cardJpBack.innerText = backJpText;
+    cardJpBack.style.fontSize = backJpText.length > 8 ? "2.2rem" : "3.5rem";
+    
     const posBadge = document.getElementById('card-pos-back');
     if (item.pos) {
         posBadge.innerText = item.pos;
@@ -164,7 +207,6 @@ function renderCard() {
         posBadge.style.display = 'none';
     }
 
-    // 隱藏舊版重音標籤，並將讀音換成辭典風 HTML
     document.getElementById('card-pitch').style.display = 'none';
     document.getElementById('card-kana').innerHTML = generatePitchHTML(item.kana, item.pitch);
 
@@ -242,11 +284,11 @@ function playAudioCard(type, event) {
     const item = (activeItem && document.getElementById('game-container').style.display === 'flex') 
                  ? activeItem : currentPool[cardIndex];
                  
-    // 改成唸 item.jp (讓語音引擎看漢字發音)
-    if ((type === 'word' || type === 'test-word') && item.jp) {
-        playTTS(item.jp); 
+    // 改回使用 getFullJp(item) 與 example.jp 讓系統讀漢字
+    if ((type === 'word' || type === 'test-word') && getFullJp(item)) {
+        playTTS(getFullJp(item)); 
     } else if ((type === 'example' || type === 'test-example') && item.example && item.example.jp) {
-        playTTS(item.example.jp); // 例句也改成唸包含漢字的 jp
+        playTTS(item.example.jp); 
     }
 }
 
@@ -260,8 +302,12 @@ function playTTS(text) {
 
 // --- 測驗系統 ---
 function nextTestQuestion() {
+    // 依據啟用的模式篩選還有任務未完成的單字
     let pendingItems = currentPool.filter(item => 
-        item.progress.voice < passTarget || item.progress.audioMatch < passTarget || item.progress.listen < passTarget
+        (activeModesConfig.voice && item.progress.voice < passTarget) || 
+        (activeModesConfig.audioMatch && item.progress.audioMatch < passTarget) || 
+        (activeModesConfig.listen && item.progress.listen < passTarget) ||
+        (activeModesConfig.zhToJp && item.progress.zhToJp < passTarget)
     );
 
     document.getElementById('progress').innerText = `${totalTargetPoints - currentPoints}`;
@@ -273,25 +319,23 @@ function nextTestQuestion() {
     }
 
     activeItem = pendingItems[Math.floor(Math.random() * pendingItems.length)];
+    
+    // 決定這次要考哪個模式
     let availableModes = [];
-    if (activeItem.progress.voice < passTarget) availableModes.push('voice');
-    if (activeItem.progress.audioMatch < passTarget) availableModes.push('audioMatch');
-    if (activeItem.progress.listen < passTarget) availableModes.push('listen');
+    if (activeModesConfig.voice && activeItem.progress.voice < passTarget) availableModes.push('voice');
+    if (activeModesConfig.audioMatch && activeItem.progress.audioMatch < passTarget) availableModes.push('audioMatch');
+    if (activeModesConfig.listen && activeItem.progress.listen < passTarget) availableModes.push('listen');
+    if (activeModesConfig.zhToJp && activeItem.progress.zhToJp < passTarget) availableModes.push('zhToJp');
 
     currentMode = availableModes[Math.floor(Math.random() * availableModes.length)];
     renderTestUI();
 }
 
+// 修改：跳過按鈕只跳過目前的單字+目前的模式
 document.getElementById('skip-btn').onclick = () => {
-    let remainingVoice = passTarget - activeItem.progress.voice;
-    let remainingAudio = passTarget - activeItem.progress.audioMatch;
-    let remainingListen = passTarget - activeItem.progress.listen;
-    
-    activeItem.progress.voice = passTarget;
-    activeItem.progress.audioMatch = passTarget;
-    activeItem.progress.listen = passTarget;
-    
-    currentPoints += (remainingVoice + remainingAudio + remainingListen);
+    let remaining = passTarget - activeItem.progress[currentMode];
+    activeItem.progress[currentMode] = passTarget;
+    currentPoints += remaining;
     nextTestQuestion();
 };
 
@@ -309,10 +353,12 @@ function renderTestUI() {
     document.getElementById('mic-status').innerText = '';
 
     let displayWord = activeItem.type === 'grammar' ? activeItem.q.replace("( ____ )", "___") : activeItem.jp;
+    wordDisplay.style.fontSize = "3rem"; // 重置大小
 
     if (currentMode === 'voice') {
         document.getElementById('question-mode-label').innerText = "🎤 語音特訓 (請唸出完整日文)";
         wordDisplay.innerText = displayWord;
+        wordDisplay.style.fontSize = displayWord.length > 10 ? "2rem" : "3rem";
         
         if (!recognition) {
             document.getElementById('mic-status').innerText = "瀏覽器不支援麥克風，此題自動送分。";
@@ -329,13 +375,16 @@ function renderTestUI() {
         recognition.onresult = (e) => {
             micBtn.innerText = "🎤 按住說話";
             let trans = e.results[0][0].transcript.trim();
-            let isCorrect = trans.includes(activeItem.jp) || trans.includes(activeItem.kana) || trans.replace(/\s/g, '') === activeItem.kana;
+            let targetJp = getFullJp(activeItem);
+            // 辨識只要包含日文漢字、或假名，就給過
+            let isCorrect = trans.includes(targetJp) || trans.includes(activeItem.kana) || trans.replace(/\s/g, '') === activeItem.kana;
             processResult(isCorrect, { type: 'text', value: trans });
         };
 
     } else if (currentMode === 'audioMatch') {
         document.getElementById('question-mode-label').innerText = "🎧 盲聽配對 (找出正確發音)";
         wordDisplay.innerText = displayWord;
+        wordDisplay.style.fontSize = displayWord.length > 10 ? "2rem" : "3rem";
 
         let options = [{ item: activeItem, isCorrect: true }];
         let others = currentPool.filter(w => w !== activeItem).sort(() => 0.5 - Math.random()).slice(0, 3);
@@ -349,7 +398,8 @@ function renderTestUI() {
             let playBtn = document.createElement('button');
             playBtn.className = 'play-audio-btn';
             playBtn.innerHTML = "🔊";
-            playBtn.onclick = () => playTTS(opt.item.jp);
+            // 改回讀取原文
+            playBtn.onclick = () => playTTS(getFullJp(opt.item));
 
             let selectBtn = document.createElement('button');
             selectBtn.className = 'select-ans-btn';
@@ -366,8 +416,9 @@ function renderTestUI() {
         wordDisplay.innerText = "";
         audioBtn.style.display = 'block';
         
-        audioBtn.onclick = () => playTTS(activeItem.jp);
-        playTTS(activeItem.jp);
+        // 改回讀取原文
+        audioBtn.onclick = () => playTTS(getFullJp(activeItem));
+        playTTS(getFullJp(activeItem));
 
         let options = [{ item: activeItem, isCorrect: true }];
         let others = currentPool.filter(w => w !== activeItem).sort(() => 0.5 - Math.random()).slice(0, 3);
@@ -379,6 +430,26 @@ function renderTestUI() {
             btn.className = 'select-ans-btn';
             btn.style.width = '100%';
             btn.innerText = opt.item.zh;
+            btn.onclick = () => processResult(opt.isCorrect, { type: 'item', value: opt.item });
+            optionsArea.appendChild(btn);
+        });
+
+    } else if (currentMode === 'zhToJp') { // --- 新增：中翻日模式 ---
+        document.getElementById('question-mode-label').innerText = "🇹🇼 中翻日測驗 (選出正確日文)";
+        wordDisplay.innerText = activeItem.zh;
+        // 如果中文太長稍微縮小
+        wordDisplay.style.fontSize = activeItem.zh.length > 10 ? "2rem" : "3rem";
+
+        let options = [{ item: activeItem, isCorrect: true }];
+        let others = currentPool.filter(w => w !== activeItem).sort(() => 0.5 - Math.random()).slice(0, 3);
+        others.forEach(o => options.push({ item: o, isCorrect: false }));
+        options.sort(() => 0.5 - Math.random());
+
+        options.forEach(opt => {
+            let btn = document.createElement('button');
+            btn.className = 'select-ans-btn';
+            btn.style.width = '100%';
+            btn.innerText = getFullJp(opt.item);
             btn.onclick = () => processResult(opt.isCorrect, { type: 'item', value: opt.item });
             optionsArea.appendChild(btn);
         });
@@ -403,17 +474,17 @@ function processResult(isCorrect, userChoice) {
         if (userChoice.type === 'text') {
             wrongText.innerText = `語音辨識為：「${userChoice.value}」`;
         } else if (userChoice.type === 'item') {
-            wrongText.innerText = `${userChoice.value.jp} (${userChoice.value.kana}) - ${userChoice.value.zh}`;
+            wrongText.innerText = `${getFullJp(userChoice.value)} (${userChoice.value.kana}) - ${userChoice.value.zh}`;
         }
     }
 
-    let fullJp = activeItem.type === 'grammar' ? activeItem.q.replace("( ____ )", activeItem.ans) : activeItem.jp;
-    document.getElementById('ex-jp').innerText = fullJp;
+    let fullJp = getFullJp(activeItem);
+    let exJpEl = document.getElementById('ex-jp');
+    exJpEl.innerText = fullJp;
+    exJpEl.style.fontSize = fullJp.length > 8 ? "2rem" : "2.8rem";
     
-    // 隱藏舊版重音標籤，並套用辭典風 HTML 於讀音區塊
     document.getElementById('ex-pitch').style.display = 'none';
     document.getElementById('ex-kana').innerHTML = generatePitchHTML(activeItem.kana, activeItem.pitch);
-    
     document.getElementById('ex-zh').innerText = activeItem.zh;
 
     const noteEl = document.getElementById('ex-note');
@@ -435,7 +506,6 @@ function processResult(isCorrect, userChoice) {
         testExBox.style.display = 'none';
     }
 
-    // 解析區的詞性與顏色標籤
     const exPos = document.getElementById('ex-pos');
     if (activeItem.pos) {
         exPos.innerText = activeItem.pos;
@@ -445,7 +515,8 @@ function processResult(isCorrect, userChoice) {
         exPos.style.display = 'none';
     }
 
-    playTTS(activeItem.jp);
+    // 解析頁也統一唸 kana 保證發音正確
+    playTTS(getFullJp(activeItem));
 
     document.getElementById('next-btn').onclick = () => nextTestQuestion();
 }
@@ -463,36 +534,25 @@ document.addEventListener('keydown', function(event) {
     }
 });
 
-/**
- * 遞迴檢查資料是否載入完成
- * @param {number} retryCount 重試次數，防止無限循環
- */
 function checkDataAndInit(retryCount = 0) {
-    const maxRetries = 50; // 最多等待 5 秒 (50 * 100ms)
+    const maxRetries = 50; 
     
-    // 檢查 window.appData 是否已經被課程檔案填入資料
     if (window.appData && Object.keys(window.appData).length > 0) {
         console.log(`課程資料載入成功，共 ${Object.keys(window.appData).length} 個課程。`);
-        initThemeSelect(); // 資料到位了，才生成選單
+        initThemeSelect(); 
     } else if (retryCount < maxRetries) {
-        // 如果還沒資料，等 100 毫秒再檢查一次
         setTimeout(() => checkDataAndInit(retryCount + 1), 100);
     } else {
-        // 真的等太久了（超過 5 秒），顯示錯誤提示
         console.error("逾時：無法載入課程資料。請檢查檔案路徑或 manifest.js 設定。");
-        initThemeSelect(); // 執行一次以顯示「暫無資料」的狀態
+        initThemeSelect(); 
     }
 }
 
-// 監聽 DOM 載入
 document.addEventListener('DOMContentLoaded', () => {
-    loadSettings(); // 載入字體大小、過關次數等設定
-    
-    // 不要直接執行 initThemeSelect，改用檢查機制
+    loadSettings(); 
     checkDataAndInit(); 
 });
 
-// --- 動態生成選單 (維持原樣，但增加防呆) ---
 function initThemeSelect() {
     const themeSelect = document.getElementById('theme-select');
     if (!themeSelect) return;
@@ -502,12 +562,11 @@ function initThemeSelect() {
         return;
     }
 
-    themeSelect.innerHTML = ''; // 清空
+    themeSelect.innerHTML = ''; 
 
     Object.keys(window.appData).forEach(key => {
         const option = document.createElement('option');
         option.value = key;
-        // 優先讀取資料裡的 title，沒有就顯示檔名 key
         option.innerText = window.appData[key].title || key;
         themeSelect.appendChild(option);
     });
