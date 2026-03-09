@@ -37,14 +37,33 @@
             </div>
         </div>
 
-        <div id="home-menu" class="menu-container">
-
-            <div class="top-bar">
-                <button id="btn-settings" class="icon-btn">⚙️ 測驗設定</button>
+        <div id="daily-panel" class="modal" style="display: none;">
+            <div class="modal-content" style="max-width: 500px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 id="daily-title" style="margin: 0; flex: 1; text-align: left;">🏆 每日挑戰 <span id="daily-date-text" style="font-size: 0.9rem; color: var(--text-muted);"></span></h3>
+                    <button id="daily-refresh-btn" class="ghost-btn" style="font-size: 0.9rem;">🔄 刷新挑戰</button>
+                </div>
+                
+                <div style="background: var(--bg-color); padding: 15px; border-radius: 10px; margin-bottom: 20px;">
+                    <p style="font-size: 1.1rem; margin-bottom: 5px;">目前時間：<strong id="daily-current-time">--:--:--</strong></p>
+                    <p style="color: var(--text-muted); font-size: 0.95rem;">距今日結束剩餘：<span id="daily-time-left">--:--:--</span></p>
+                </div>
+                
+                <p id="daily-congratulations" style="display: none; color: var(--success); font-weight: bold; font-size: 1.2rem; margin-bottom: 15px;">🎉 恭喜！您已完成本日挑戰！</p>
+                
+                <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                    <button id="daily-preview-btn" class="action-btn" style="background: #74b9ff; color: #2d3436; flex: 1; min-width: 140px;">📇 預習挑戰單字</button>
+                    <button id="daily-start-btn" class="action-btn" style="background: #55efc4; color: #2d3436; flex: 1; min-width: 140px;">⚔️ 開始挑戰</button>
+                </div>
+                
+                <button class="ghost-btn full-width" style="margin-top: 15px;" onclick="closeDailyModal()">關閉</button>
             </div>
+        </div>
 
+        <div id="home-menu" class="menu-container">
             <h1>📓 日語特訓</h1>
             <select id="theme-select"></select>
+            <select id="home-tag-select" style="display: none;"></select>
             
             <div class="checkbox-group" id="level-checkboxes">
                 <label><input type="checkbox" value="N5" checked> N5 基礎</label>
@@ -54,16 +73,32 @@
                 <label><input type="checkbox" value="N1"> N1 高級</label>
             </div>
 
-            <div style="margin-top: 30px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;">
-                <button id="view-cards-btn" class="action-btn" style="background: #0984e3;">📇 預習單字卡</button>
-                <button id="start-btn" class="action-btn" style="background: #00b894;">⚔️ 開始測驗特訓</button>
+            <div class="main-menu-actions">
+                <button id="view-cards-btn" class="action-btn" style="background: #74b9ff; color: #2d3436;">📇 預習單字卡</button>
+                
+                <div class="action-btn-wrapper">
+                    <button id="start-btn" class="action-btn" style="background: #55efc4; color: #2d3436; padding-right: 50px;">⚔️ 開始測驗特訓</button>
+                    <button id="btn-settings" class="overlay-icon-btn" title="測驗設定">⚙️</button>
+                </div>
+                
+                <div class="action-btn-wrapper">
+                    <button id="daily-btn" class="action-btn" style="background: #fdcb6e; color: #2d3436; padding-right: 50px;">🏆 每日挑戰</button>
+                    <div class="overlay-icon-text">
+                        <span id="daily-status">❌</span>
+                    </div>
+                </div>
             </div>
         </div>
 
         <div id="flashcard-container" style="display: none; width: 100%; flex-direction: column; flex: 1;">
-            <div class="hud">
-                <button class="back-btn go-home-btn icon-btn">🏠 返回</button>
-                <span id="card-progress-top">預習模式</span>
+            <div class="hud" style="position: relative;">
+                <button class="back-btn go-home-btn icon-btn" style="position: relative; z-index: 2; font-weight: bold; color: var(--text-muted); font-size: 1.1rem;">🏠 返回</button>
+                
+                <div style="position: absolute; left: 0; right: 0; display: flex; justify-content: center; pointer-events: none; z-index: 1;">
+                    <select id="flashcard-tag-select" style="display:none; padding: 5px; border-radius: 8px; border: 1px solid var(--border-color); max-width: 150px; pointer-events: auto; background: var(--card-bg);"></select>
+                </div>
+                
+                <span style="position: relative; z-index: 2; font-weight: bold; color: var(--text-muted); font-size: 1.1rem;">單字卡</span>
             </div>
 
             <div class="flashcard-wrapper">
@@ -119,7 +154,7 @@
             <div class="hud">
                 <button class="back-btn go-home-btn icon-btn">🏠 放棄</button>
                 <span>剩餘目標: <span id="progress">0</span></span>
-                <button id="skip-btn" class="icon-btn" style="background: #ff7675; color: white;">⏭️ 跳過</button>
+                <button id="skip-btn" class="ghost-btn">⏭️ 跳過</button>
             </div>
 
             <div class="battle-area" id="question-area">
@@ -127,9 +162,18 @@
                     <div id="question-mode-label" style="color: var(--text-light); margin-bottom: 10px; font-weight: bold;"></div>
                     <h2 id="enemy-word" style="font-size: 3rem; margin: 10px 0;"></h2>
                     
-                    <button id="mic-btn" class="mic-btn" style="display: none;">🎤 按住說話</button>
-                    <p id="mic-status" style="color: var(--text-muted); font-size: 0.9rem; margin-top: 10px;"></p>
-                    
+                    <div id="voice-input-container" style="display: none; flex-direction: column; align-items: center; width: 100%;">
+                        <button id="mic-btn" class="mic-btn">🎤 按住說話</button>
+                        <p id="mic-status" style="color: var(--text-muted); font-size: 0.9rem; margin-top: 10px;"></p>
+                        
+                        <div id="romaji-input-area" style="display: none; margin-top: 15px; width: 100%;">
+                            <input type="text" id="romaji-input" placeholder="輸入羅馬拼音 (如 watashi)..." style="padding: 12px; font-size: 1.1rem; border-radius: 8px; border: 1px solid var(--border-color); width: 100%; max-width: 250px; text-align: center;">
+                            <button id="romaji-submit" class="action-btn" style="padding: 10px 20px; margin-top: 10px; background: #74b9ff; color: #2d3436;">送出</button>
+                        </div>
+                        
+                        <button id="toggle-romaji-btn" class="ghost-btn" style="margin-top: 15px;">⌨️ 切換鍵盤輸入</button>
+                    </div>
+
                     <button id="replay-audio" class="play-audio-btn" style="display: none; margin: 10px auto; width: 80px; height: 80px; border-radius: 50%;">🔊</button>
                 </div>
                 <div class="controls" id="options-area"></div>
@@ -170,7 +214,7 @@
                         </div>
                     </div>
                 </div>
-                <button id="next-btn" class="action-btn full-width">下一題 ➡️</button>
+                <button id="next-btn" class="action-btn full-width" style="background: #74b9ff; color: #2d3436;">下一題 ➡️</button>
             </div>
         </div>
 
@@ -183,18 +227,16 @@
     </div>
 
     <script src="data/manifest.js"></script>
-
     <script>
         if (window.courseList) {
             window.courseList.forEach(fileName => {
                 const script = document.createElement('script');
                 script.src = `data/${fileName}`;
-                script.async = false; // 盡量按順序，減少衝突
+                script.async = false;
                 document.head.appendChild(script);
             });
         }
     </script>
-
     <script src="script.js"></script>
 </body>
 </html>
