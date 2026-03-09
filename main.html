@@ -15,7 +15,24 @@
                 <br>
                 <label>🎯 每種模式過關次數：</label>
                 <input type="number" id="target-count-input" min="1" max="10" value="2" style="width: 50px; font-size: 1.1rem; text-align: center;">
-                <br><br><br>
+                <br><br>
+                
+                <div style="text-align: left; background: var(--bg-color); padding: 15px; border-radius: 10px; display: inline-block;">
+                    <p style="margin-bottom: 10px; font-weight: bold; color: var(--primary);">📝 啟用測驗模式：</p>
+                    <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; cursor: pointer;">
+                        <input type="checkbox" id="setting-mode-voice" checked style="transform: scale(1.2);"> 🎤 語音特訓
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; cursor: pointer;">
+                        <input type="checkbox" id="setting-mode-audioMatch" checked style="transform: scale(1.2);"> 🎧 盲聽配對
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; cursor: pointer;">
+                        <input type="checkbox" id="setting-mode-listen" checked style="transform: scale(1.2);"> 👂 純聽力測驗
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" id="setting-mode-zhToJp" style="transform: scale(1.2);"> 📃 中翻日測驗
+                    </label>
+                </div>
+                <br><br>
                 <button id="save-settings-btn" class="action-btn">💾 儲存並關閉</button>
             </div>
         </div>
@@ -26,12 +43,12 @@
                 <button id="btn-settings" class="icon-btn">⚙️ 測驗設定</button>
             </div>
 
-            <h1>📚 日語特訓</h1>
+            <h1>📓 日語特訓</h1>
             <select id="theme-select"></select>
             
             <div class="checkbox-group" id="level-checkboxes">
                 <label><input type="checkbox" value="N5" checked> N5 基礎</label>
-                <label><input type="checkbox" value="N4" checked> N4 初級</label>
+                <label><input type="checkbox" value="N4"> N4 初級</label>
                 <label><input type="checkbox" value="N3"> N3 中級</label>
                 <label><input type="checkbox" value="N2"> N2 中高</label>
                 <label><input type="checkbox" value="N1"> N1 高級</label>
