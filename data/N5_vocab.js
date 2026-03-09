@@ -1,6 +1,6 @@
 window.appData = window.appData || {};
 
-window.appData["JLPT_N5"] = {
+window.appData["N5_vocab"] = {
     title: "JLPT_N5",
     items: [
         // ====== 【人物、稱呼與身分】 Tag: people_and_identity ======
