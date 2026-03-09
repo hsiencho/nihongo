@@ -1,23 +1,86 @@
 // --- 核心變數 ---
 let currentPool = []; 
+let sessionPool = []; 
 let activeItem = null;
 let currentMode = ''; 
-let passTarget = 2; // 動態過關次數
+let passTarget = 2; 
 let totalTargetPoints = 0; 
 let currentPoints = 0; 
 
-// --- 新增：模式設定狀態 ---
+let isDailyChallenge = false;
+let originalPassTarget = 2;
+let dailyTimerId = null;
+
+// 儲存原始設定
+window.originalModesConfig = null;
+
+// --- 模式設定狀態 ---
 let activeModesConfig = {
     voice: true,
     audioMatch: true,
     listen: true,
-    zhToJp: false // 預設關閉
+    zhToJp: false
 };
 
-// 輔助函式：取得完整的日文（處理文法題沒有 jp 屬性的問題）
+const tagMap = {
+    "people_and_identity": "人物、稱呼與身分",
+    "time_and_date": "時間與日期",
+    "objects_and_clothing": "物品與服飾",
+    "adjectives": "形容詞 (狀態與感覺)",
+    "food_and_drink": "飲食",
+    "places_and_buildings": "地點與建築",
+    "directions_and_positions": "方位與位置",
+    "verbs": "核心動詞",
+    "pronouns_and_interrogatives": "指示詞與疑問詞",
+    "nature_and_weather": "自然與天氣",
+    "transportation_and_movement": "交通與移動"
+};
+
 function getFullJp(item) {
     if (!item) return "";
     return item.type === 'grammar' ? item.q.replace("( ____ )", item.ans) : item.jp;
+}
+
+function getGMT8Date() {
+    const d = new Date();
+    const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
+    const nd = new Date(utc + (3600000 * 8));
+    const yyyy = nd.getFullYear();
+    const mm = String(nd.getMonth() + 1).padStart(2, '0');
+    const dd = String(nd.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+}
+
+function getGMT8DateTime() {
+    const d = new Date();
+    const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
+    return new Date(utc + (3600000 * 8));
+}
+
+// 動態計算需要完成的點數
+function calculatePoints(pool) {
+    let total = 0;
+    let current = 0;
+    pool.forEach(item => {
+        // 文法題排除語音特訓
+        if (item.type !== 'grammar' && activeModesConfig.voice) {
+            total += passTarget;
+            current += Math.min(item.progress.voice, passTarget);
+        }
+        if (activeModesConfig.audioMatch) {
+            total += passTarget;
+            current += Math.min(item.progress.audioMatch, passTarget);
+        }
+        if (activeModesConfig.listen) {
+            total += passTarget;
+            current += Math.min(item.progress.listen, passTarget);
+        }
+        if (activeModesConfig.zhToJp) {
+            total += passTarget;
+            current += Math.min(item.progress.zhToJp, passTarget);
+        }
+    });
+    return { total, current };
 }
 
 // --- 設定與本地儲存 ---
@@ -29,23 +92,28 @@ function loadSettings() {
     document.getElementById('target-count-input').value = savedTarget;
     passTarget = parseInt(savedTarget);
 
-    // 讀取模式設定
     activeModesConfig.voice = localStorage.getItem('modeVoice') !== 'false';
     activeModesConfig.audioMatch = localStorage.getItem('modeAudioMatch') !== 'false';
     activeModesConfig.listen = localStorage.getItem('modeListen') !== 'false';
     activeModesConfig.zhToJp = localStorage.getItem('modeZhToJp') === 'true';
 
-    // 更新 UI Checkbox
-    const v = document.getElementById('setting-mode-voice');
-    if(v) v.checked = activeModesConfig.voice;
-    const a = document.getElementById('setting-mode-audioMatch');
-    if(a) a.checked = activeModesConfig.audioMatch;
-    const l = document.getElementById('setting-mode-listen');
-    if(l) l.checked = activeModesConfig.listen;
-    const z = document.getElementById('setting-mode-zhToJp');
-    if(z) z.checked = activeModesConfig.zhToJp;
+    const v = document.getElementById('setting-mode-voice'); if(v) v.checked = activeModesConfig.voice;
+    const a = document.getElementById('setting-mode-audioMatch'); if(a) a.checked = activeModesConfig.audioMatch;
+    const l = document.getElementById('setting-mode-listen'); if(l) l.checked = activeModesConfig.listen;
+    const z = document.getElementById('setting-mode-zhToJp'); if(z) z.checked = activeModesConfig.zhToJp;
+
+    updateDailyStatus();
 }
 loadSettings();
+
+function updateDailyStatus() {
+    const doneDate = localStorage.getItem('dailyChallengeDoneDate');
+    const today = getGMT8Date();
+    const statusIcon = document.getElementById('daily-status');
+    if (statusIcon) {
+        statusIcon.innerText = (doneDate === today) ? "✅" : "❌";
+    }
+}
 
 const fontSlider = document.getElementById('font-scale-slider');
 fontSlider.addEventListener('input', (e) => {
@@ -59,7 +127,6 @@ document.getElementById('save-settings-btn').onclick = () => {
     localStorage.setItem('passTarget', target);
     passTarget = parseInt(target);
 
-    // 儲存模式設定
     activeModesConfig.voice = document.getElementById('setting-mode-voice').checked;
     activeModesConfig.audioMatch = document.getElementById('setting-mode-audioMatch').checked;
     activeModesConfig.listen = document.getElementById('setting-mode-listen').checked;
@@ -73,7 +140,6 @@ document.getElementById('save-settings-btn').onclick = () => {
     document.getElementById('settings-panel').style.display = 'none';
 };
 
-// 語音設定
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recognition = null;
 if (SpeechRecognition) {
@@ -83,107 +149,280 @@ if (SpeechRecognition) {
     recognition.maxAlternatives = 1;
 }
 
-// --- 首頁導航 ---
+// --- 首頁導航與選單互動 ---
 document.getElementById('start-btn').onclick = () => initSession('test');
 document.getElementById('view-cards-btn').onclick = () => initSession('flashcard');
+document.getElementById('daily-btn').onclick = () => openDailyModal();
+
 document.querySelectorAll('.go-home-btn').forEach(btn => {
     btn.onclick = () => {
         document.getElementById('game-container').style.display = 'none';
         document.getElementById('flashcard-container').style.display = 'none';
         document.getElementById('home-menu').style.display = 'flex';
         window.speechSynthesis.cancel();
+        
+        // 退出挑戰時還原本來的設定
+        if (isDailyChallenge) {
+            isDailyChallenge = false;
+            passTarget = originalPassTarget; 
+            if(window.originalModesConfig) {
+                activeModesConfig = { ...window.originalModesConfig };
+                window.originalModesConfig = null;
+            }
+        }
+        updateDailyStatus();
     };
 });
+
+function updateHomeTags() {
+    const themeKey = document.getElementById('theme-select').value;
+    const themeData = window.appData && window.appData[themeKey] ? window.appData[themeKey].items : [];
+    const selectedLevels = Array.from(document.querySelectorAll('#level-checkboxes input:checked')).map(cb => cb.value);
+    
+    const tags = new Set();
+    themeData.forEach(item => { 
+        if (selectedLevels.includes(item.level) && item.tag) tags.add(item.tag); 
+    });
+
+    const tagSelect = document.getElementById('home-tag-select');
+    if (tags.size > 0) {
+        tagSelect.style.display = 'block';
+        tagSelect.innerHTML = '<option value="all">全部</option>';
+        tags.forEach(tag => {
+            const opt = document.createElement('option');
+            opt.value = tag;
+            opt.innerText = tagMap[tag] || tag;
+            tagSelect.appendChild(opt);
+        });
+    } else {
+        tagSelect.style.display = 'none';
+        tagSelect.innerHTML = '<option value="all">全部</option>';
+    }
+}
+
+document.getElementById('theme-select').addEventListener('change', updateHomeTags);
+document.querySelectorAll('#level-checkboxes input').forEach(cb => cb.addEventListener('change', updateHomeTags));
+
+// --- 每日挑戰邏輯 ---
+function openDailyModal() {
+    initDailyPool();
+    document.getElementById('daily-panel').style.display = 'flex';
+    document.getElementById('daily-date-text').innerText = getGMT8Date();
+    
+    dailyTimerId = setInterval(updateDailyTimer, 1000);
+    updateDailyTimer();
+    updateDailyModalUI();
+}
+
+function closeDailyModal() {
+    document.getElementById('daily-panel').style.display = 'none';
+    clearInterval(dailyTimerId);
+}
+
+function updateDailyTimer() {
+    const now = getGMT8DateTime();
+    const currentStr = now.toTimeString().split(' ')[0]; 
+    document.getElementById('daily-current-time').innerText = currentStr;
+    
+    const eod = new Date(now);
+    eod.setHours(23, 59, 59, 999);
+    const diff = Math.floor((eod - now) / 1000);
+    
+    const h = String(Math.floor(diff / 3600)).padStart(2, '0');
+    const m = String(Math.floor((diff % 3600) / 60)).padStart(2, '0');
+    const s = String(diff % 60).padStart(2, '0');
+    document.getElementById('daily-time-left').innerText = `${h}:${m}:${s}`;
+}
+
+function updateDailyModalUI() {
+    const doneDate = localStorage.getItem('dailyChallengeDoneDate');
+    const today = getGMT8Date();
+    const isDone = (doneDate === today);
+    
+    document.getElementById('daily-congratulations').style.display = isDone ? 'block' : 'none';
+    document.getElementById('daily-start-btn').innerText = isDone ? '⚔️ 再次挑戰(不計分)' : '⚔️ 開始挑戰';
+}
+
+function initDailyPool(forceRefresh = false) {
+    const today = getGMT8Date();
+    let savedDate = localStorage.getItem('dailyDate');
+    let savedPool = localStorage.getItem('dailyPool');
+    
+    if (savedDate !== today || !savedPool || forceRefresh) {
+        let allItems = [];
+        Object.values(window.appData).forEach(theme => {
+            if (theme.items) {
+                // 排除文法題，只抓單字
+                allItems = allItems.concat(theme.items.filter(i => i.type !== 'grammar'));
+            }
+        });
+        
+        allItems.sort(() => 0.5 - Math.random());
+        let newPool = allItems.slice(0, 30).map(item => ({
+            ...item, progress: { voice: 0, audioMatch: 0, listen: 0, zhToJp: 0 }
+        }));
+        
+        localStorage.setItem('dailyDate', today);
+        localStorage.setItem('dailyPool', JSON.stringify(newPool));
+        if (savedDate !== today || forceRefresh) {
+            localStorage.removeItem('dailyChallengeDoneDate');
+        }
+        return newPool;
+    } else {
+        return JSON.parse(savedPool);
+    }
+}
+
+let dailyRefreshClicks = 0;
+const refreshBtn = document.getElementById('daily-refresh-btn');
+refreshBtn.onclick = () => {
+    if (dailyRefreshClicks === 0) {
+        refreshBtn.innerText = "⚠️ 確定刷新?";
+        refreshBtn.style.color = "var(--danger)";
+        dailyRefreshClicks++;
+        setTimeout(() => {
+            if(dailyRefreshClicks === 1) { 
+                refreshBtn.innerText = "🔄 刷新挑戰";
+                refreshBtn.style.color = "var(--text-muted)";
+                dailyRefreshClicks = 0;
+            }
+        }, 3000);
+    } else {
+        initDailyPool(true); 
+        refreshBtn.innerText = "🔄 刷新挑戰";
+        refreshBtn.style.color = "var(--text-muted)";
+        dailyRefreshClicks = 0;
+        alert("已為您刷新本日題庫與進度！");
+        updateDailyModalUI();
+    }
+};
+
+document.getElementById('daily-preview-btn').onclick = () => startDaily('flashcard');
+document.getElementById('daily-start-btn').onclick = () => startDaily('test');
+
+function startDaily(type) {
+    closeDailyModal();
+    isDailyChallenge = true;
+    originalPassTarget = passTarget;
+    passTarget = 2; // 挑戰模式強制要求每種完成2次
+
+    // 強制全部模式開啟
+    window.originalModesConfig = { ...activeModesConfig };
+    activeModesConfig = { voice: true, audioMatch: true, listen: true, zhToJp: true };
+
+    document.getElementById('home-menu').style.display = 'none';
+    currentPool = JSON.parse(localStorage.getItem('dailyPool'));
+
+    if (type === 'flashcard') {
+        document.getElementById('flashcard-container').style.display = 'flex';
+        sessionPool = currentPool.map(item => ({ ...item }));
+        populateFlashcardTags(sessionPool);
+        filterFlashcards('all');
+    } else {
+        document.getElementById('game-container').style.display = 'flex';
+        document.getElementById('skip-btn').style.display = 'none'; // 挑戰隱藏跳過
+        
+        const pts = calculatePoints(currentPool);
+        totalTargetPoints = pts.total;
+        currentPoints = pts.current;
+
+        nextTestQuestion();
+    }
+}
+
 
 function initSession(type) {
     const themeKey = document.getElementById('theme-select').value;
     const themeData = window.appData && window.appData[themeKey] ? window.appData[themeKey].items : [];
     const selectedLevels = Array.from(document.querySelectorAll('#level-checkboxes input:checked')).map(cb => cb.value);
+    const selectedTag = document.getElementById('home-tag-select').value;
+
+    let activeModesCount = Object.values(activeModesConfig).filter(v => v).length;
 
     if (selectedLevels.length === 0) return alert("請至少選擇一個難度！");
-
-    // 計算啟用了幾個模式
-    let activeModesCount = Object.values(activeModesConfig).filter(v => v).length;
     if (type === 'test' && activeModesCount === 0) return alert("請至設定中至少開啟一種測驗模式！");
 
-    currentPool = themeData.filter(item => selectedLevels.includes(item.level)).map(item => ({
-        ...item,
-        progress: { voice: 0, audioMatch: 0, listen: 0, zhToJp: 0 } 
-    }));
-
-    if (currentPool.length === 0) return alert("抱歉，該難度下目前沒有題目資料喔！");
+    let basePool = themeData.filter(item => selectedLevels.includes(item.level));
+    if (basePool.length === 0) return alert("抱歉，該難度下目前沒有題目資料喔！");
 
     document.getElementById('home-menu').style.display = 'none';
 
     if (type === 'flashcard') {
         document.getElementById('flashcard-container').style.display = 'flex';
-        initFlashcards();
+        sessionPool = basePool.map(item => ({ ...item }));
+        populateFlashcardTags(sessionPool);
+        filterFlashcards(selectedTag && selectedTag !== 'all' ? selectedTag : 'all'); 
     } else {
+        if (selectedTag && selectedTag !== 'all') {
+            basePool = basePool.filter(item => item.tag === selectedTag);
+        }
+        if (basePool.length === 0) {
+            document.querySelector('.go-home-btn').click();
+            return alert("抱歉，該標籤分類下沒有題目喔！");
+        }
+
+        currentPool = basePool.map(item => ({
+            ...item, progress: { voice: 0, audioMatch: 0, listen: 0, zhToJp: 0 } 
+        }));
+
         document.getElementById('game-container').style.display = 'flex';
-        // 目標總分 = 題目數 * 啟用的模式數量 * 過關次數
-        totalTargetPoints = currentPool.length * activeModesCount * passTarget; 
-        currentPoints = 0;
+        document.getElementById('skip-btn').style.display = 'block'; 
+        
+        const pts = calculatePoints(currentPool);
+        totalTargetPoints = pts.total;
+        currentPoints = pts.current;
+
         nextTestQuestion();
     }
 }
 
-// --- 詞性顏色與重音生成器 ---
-function getPosColor(pos) {
-    if (!pos) return '#636e72';
-    if (pos.includes('動詞')) return '#ff7675'; 
-    if (pos.includes('名詞')) return '#74b9ff'; 
-    if (pos.includes('形容詞')) return '#55efc4'; 
-    if (pos.includes('副詞')) return '#ffeaa7'; 
-    return '#a29bfe'; 
-}
-
-function generatePitchHTML(kana, pitchStr) {
-    if (!kana) return "";
-    if (!pitchStr) return `<span class="mora">${kana}</span>`;
-
-    let pitchNum = parseInt(pitchStr.replace(/[^0-9]/g, ''), 10);
-    if (isNaN(pitchNum)) return `<span class="mora">${kana}</span>`;
-
-    let moras = [];
-    for (let i = 0; i < kana.length; i++) {
-        let char = kana[i];
-        if (/[ゃゅょぁぃぅぇぉャュョァィゥェォー]/.test(char) && moras.length > 0) {
-            moras[moras.length - 1] += char;
-        } else {
-            moras.push(char);
-        }
-    }
-
-    let html = '';
-    for (let i = 0; i < moras.length; i++) {
-        let isHigh = false;
-        let isDrop = false;
-        let m = i + 1; 
-
-        if (pitchNum === 0) {
-            if (m > 1) isHigh = true;
-        } else if (pitchNum === 1) {
-            if (m === 1) { isHigh = true; isDrop = true; }
-        } else {
-            if (m > 1 && m <= pitchNum) isHigh = true;
-            if (m === pitchNum) isDrop = true;
-        }
-
-        let classes = ['mora'];
-        if (isHigh) classes.push('pitch-high');
-        if (isDrop) classes.push('pitch-drop');
-
-        html += `<span class="${classes.join(' ')}">${moras[i]}</span>`;
-    }
-    
-    return html;
-}
-
 // --- 單字卡系統 ---
 let cardIndex = 0;
-function initFlashcards() { cardIndex = 0; renderCard(); }
+
+function populateFlashcardTags(pool) {
+    const tags = new Set();
+    pool.forEach(item => { if (item.tag) tags.add(item.tag); });
+    
+    const selectEl = document.getElementById('flashcard-tag-select');
+    if (tags.size > 0) {
+        selectEl.style.display = 'inline-block';
+        selectEl.innerHTML = '<option value="all">全部</option>';
+        tags.forEach(tag => {
+            const opt = document.createElement('option');
+            opt.value = tag;
+            opt.innerText = tagMap[tag] || tag;
+            selectEl.appendChild(opt);
+        });
+        selectEl.value = 'all'; 
+    } else {
+        selectEl.style.display = 'none';
+        selectEl.innerHTML = '';
+    }
+}
+
+document.getElementById('flashcard-tag-select').addEventListener('change', (e) => { filterFlashcards(e.target.value); });
+
+function filterFlashcards(tag) {
+    if (tag === 'all') {
+        currentPool = [...sessionPool];
+    } else {
+        currentPool = sessionPool.filter(item => item.tag === tag);
+    }
+    const tagSelect = document.getElementById('flashcard-tag-select');
+    if (tagSelect.querySelector(`option[value="${tag}"]`)) {
+        tagSelect.value = tag; 
+    }
+    cardIndex = 0;
+    if (currentPool.length > 0) {
+        renderCard();
+    } else {
+        document.getElementById('card-jp-front').innerText = "無符合標籤之單字";
+        document.getElementById('card-progress').innerText = "0 / 0";
+    }
+}
 
 function renderCard() {
+    if(currentPool.length === 0) return;
     const item = currentPool[cardIndex];
     document.getElementById('card-progress').innerText = `${cardIndex + 1} / ${currentPool.length}`;
     
@@ -192,7 +431,6 @@ function renderCard() {
     let frontText = item.type === 'grammar' ? item.q.replace("( ____ )", "___") : item.jp;
     document.getElementById('card-jp-front').innerText = frontText;
     
-    // 解決文法字太多跑版的問題
     let backJpText = getFullJp(item);
     let cardJpBack = document.getElementById('card-jp-back');
     cardJpBack.innerText = backJpText;
@@ -237,6 +475,7 @@ function renderCard() {
 }
 
 function flipCard() {
+    if(currentPool.length === 0) return;
     const front = document.getElementById('card-front');
     const back = document.getElementById('card-back');
     const flipBackBtn = document.getElementById('flip-back-btn');
@@ -270,21 +509,14 @@ function resetCardToFront() {
     window.speechSynthesis.cancel(); 
 }
 
-document.getElementById('next-card').onclick = (e) => {
-    e.stopPropagation();
-    if (cardIndex < currentPool.length - 1) { cardIndex++; renderCard(); }
-};
-document.getElementById('prev-card').onclick = (e) => {
-    e.stopPropagation();
-    if (cardIndex > 0) { cardIndex--; renderCard(); }
-};
+document.getElementById('next-card').onclick = (e) => { e.stopPropagation(); if (cardIndex < currentPool.length - 1) { cardIndex++; renderCard(); } };
+document.getElementById('prev-card').onclick = (e) => { e.stopPropagation(); if (cardIndex > 0) { cardIndex--; renderCard(); } };
 
 function playAudioCard(type, event) {
     if (event) event.stopPropagation(); 
     const item = (activeItem && document.getElementById('game-container').style.display === 'flex') 
                  ? activeItem : currentPool[cardIndex];
                  
-    // 改回使用 getFullJp(item) 與 example.jp 讓系統讀漢字
     if ((type === 'word' || type === 'test-word') && getFullJp(item)) {
         playTTS(getFullJp(item)); 
     } else if ((type === 'example' || type === 'test-example') && item.example && item.example.jp) {
@@ -300,11 +532,54 @@ function playTTS(text) {
     window.speechSynthesis.speak(msg);
 }
 
+function getPosColor(pos) {
+    if (!pos) return '#636e72';
+    if (pos.includes('動詞')) return '#ff7675'; 
+    if (pos.includes('名詞')) return '#74b9ff'; 
+    if (pos.includes('形容詞')) return '#55efc4'; 
+    if (pos.includes('副詞')) return '#ffeaa7'; 
+    return '#a29bfe'; 
+}
+
+function generatePitchHTML(kana, pitchStr) {
+    if (!kana) return "";
+    if (!pitchStr) return `<span class="mora">${kana}</span>`;
+    let pitchNum = parseInt(pitchStr.replace(/[^0-9]/g, ''), 10);
+    if (isNaN(pitchNum)) return `<span class="mora">${kana}</span>`;
+    let moras = [];
+    for (let i = 0; i < kana.length; i++) {
+        let char = kana[i];
+        if (/[ゃゅょぁぃぅぇぉャュョァィゥェォー]/.test(char) && moras.length > 0) {
+            moras[moras.length - 1] += char;
+        } else {
+            moras.push(char);
+        }
+    }
+    let html = '';
+    for (let i = 0; i < moras.length; i++) {
+        let isHigh = false;
+        let isDrop = false;
+        let m = i + 1; 
+        if (pitchNum === 0) {
+            if (m > 1) isHigh = true;
+        } else if (pitchNum === 1) {
+            if (m === 1) { isHigh = true; isDrop = true; }
+        } else {
+            if (m > 1 && m <= pitchNum) isHigh = true;
+            if (m === pitchNum) isDrop = true;
+        }
+        let classes = ['mora'];
+        if (isHigh) classes.push('pitch-high');
+        if (isDrop) classes.push('pitch-drop');
+        html += `<span class="${classes.join(' ')}">${moras[i]}</span>`;
+    }
+    return html;
+}
+
 // --- 測驗系統 ---
 function nextTestQuestion() {
-    // 依據啟用的模式篩選還有任務未完成的單字
     let pendingItems = currentPool.filter(item => 
-        (activeModesConfig.voice && item.progress.voice < passTarget) || 
+        (item.type !== 'grammar' && activeModesConfig.voice && item.progress.voice < passTarget) || 
         (activeModesConfig.audioMatch && item.progress.audioMatch < passTarget) || 
         (activeModesConfig.listen && item.progress.listen < passTarget) ||
         (activeModesConfig.zhToJp && item.progress.zhToJp < passTarget)
@@ -313,16 +588,21 @@ function nextTestQuestion() {
     document.getElementById('progress').innerText = `${totalTargetPoints - currentPoints}`;
 
     if (pendingItems.length === 0) {
-        alert("🎉 恭喜！本次特訓目標已全數達成！");
+        if (isDailyChallenge) {
+            localStorage.setItem('dailyChallengeDoneDate', getGMT8Date());
+            alert("🎉 恭喜！您已完成今天的每日挑戰！");
+        } else {
+            alert("🎉 恭喜！本次特訓目標已全數達成！");
+        }
         document.querySelector('.go-home-btn').click();
         return;
     }
 
     activeItem = pendingItems[Math.floor(Math.random() * pendingItems.length)];
     
-    // 決定這次要考哪個模式
     let availableModes = [];
-    if (activeModesConfig.voice && activeItem.progress.voice < passTarget) availableModes.push('voice');
+    // 嚴格排除文法題的語音模式
+    if (activeItem.type !== 'grammar' && activeModesConfig.voice && activeItem.progress.voice < passTarget) availableModes.push('voice');
     if (activeModesConfig.audioMatch && activeItem.progress.audioMatch < passTarget) availableModes.push('audioMatch');
     if (activeModesConfig.listen && activeItem.progress.listen < passTarget) availableModes.push('listen');
     if (activeModesConfig.zhToJp && activeItem.progress.zhToJp < passTarget) availableModes.push('zhToJp');
@@ -331,7 +611,6 @@ function nextTestQuestion() {
     renderTestUI();
 }
 
-// 修改：跳過按鈕只跳過目前的單字+目前的模式
 document.getElementById('skip-btn').onclick = () => {
     let remaining = passTarget - activeItem.progress[currentMode];
     activeItem.progress[currentMode] = passTarget;
@@ -339,57 +618,107 @@ document.getElementById('skip-btn').onclick = () => {
     nextTestQuestion();
 };
 
+const toggleRomajiBtn = document.getElementById('toggle-romaji-btn');
+const romajiInputArea = document.getElementById('romaji-input-area');
+const romajiInput = document.getElementById('romaji-input');
+const romajiSubmit = document.getElementById('romaji-submit');
+const micBtn = document.getElementById('mic-btn');
+
+toggleRomajiBtn.onclick = () => {
+    if(romajiInputArea.style.display === 'none') {
+        romajiInputArea.style.display = 'block';
+        micBtn.style.display = 'none';
+        toggleRomajiBtn.innerText = "🎤 切換語音輸入";
+        romajiInput.focus();
+    } else {
+        romajiInputArea.style.display = 'none';
+        micBtn.style.display = 'inline-block';
+        toggleRomajiBtn.innerText = "⌨️ 切換鍵盤輸入";
+    }
+};
+
+romajiInput.onkeypress = (e) => {
+    if (e.key === 'Enter') romajiSubmit.click();
+};
+
+romajiSubmit.onclick = () => {
+    let val = romajiInput.value.trim();
+    if(!val) return;
+    let targetStr = activeItem.romaji.replace(/[^a-z]/gi, '').toLowerCase();
+    let inputStr = val.replace(/[^a-z]/gi, '').toLowerCase();
+    
+    let isCorrect = (targetStr === inputStr);
+    processResult(isCorrect, { type: 'text', value: val });
+};
+
+// 輔助函式：取得過濾後的選項陣列
+function getOptionsFor(activeItem) {
+    let options = [{ item: activeItem, isCorrect: true }];
+    let isGrammar = activeItem.type === 'grammar';
+    // 嚴格分類：文法題只抓文法，單字題只抓單字
+    let others = currentPool.filter(w => w !== activeItem && (w.type === 'grammar') === isGrammar)
+                            .sort(() => 0.5 - Math.random())
+                            .slice(0, 3);
+    others.forEach(o => options.push({ item: o, isCorrect: false }));
+    options.sort(() => 0.5 - Math.random());
+    return options;
+}
+
 function renderTestUI() {
     document.getElementById('question-area').style.display = 'flex';
     document.getElementById('explanation-area').style.display = 'none';
     const wordDisplay = document.getElementById('enemy-word');
     const optionsArea = document.getElementById('options-area');
-    const micBtn = document.getElementById('mic-btn');
+    const voiceInputContainer = document.getElementById('voice-input-container');
     const audioBtn = document.getElementById('replay-audio');
     
     optionsArea.innerHTML = '';
-    micBtn.style.display = 'none';
+    voiceInputContainer.style.display = 'none';
     audioBtn.style.display = 'none';
     document.getElementById('mic-status').innerText = '';
 
     let displayWord = activeItem.type === 'grammar' ? activeItem.q.replace("( ____ )", "___") : activeItem.jp;
-    wordDisplay.style.fontSize = "3rem"; // 重置大小
+    wordDisplay.style.fontSize = "3rem"; 
 
     if (currentMode === 'voice') {
         document.getElementById('question-mode-label').innerText = "🎤 語音特訓 (請唸出完整日文)";
         wordDisplay.innerText = displayWord;
         wordDisplay.style.fontSize = displayWord.length > 10 ? "2rem" : "3rem";
         
+        voiceInputContainer.style.display = 'flex';
+        micBtn.style.display = 'inline-block';
+        romajiInputArea.style.display = 'none';
+        toggleRomajiBtn.innerText = "⌨️ 切換鍵盤輸入";
+        romajiInput.value = '';
+        
         if (!recognition) {
-            document.getElementById('mic-status').innerText = "瀏覽器不支援麥克風，此題自動送分。";
-            setTimeout(() => processResult(true, null), 1500);
-            return;
+            document.getElementById('mic-status').innerText = "瀏覽器不支援麥克風，您可以切換至鍵盤輸入。";
         }
 
-        micBtn.style.display = 'inline-block';
         micBtn.onclick = () => {
+            if(!recognition) return;
             micBtn.innerText = "聽取中...";
             try { recognition.start(); } catch(e) {} 
         };
 
-        recognition.onresult = (e) => {
-            micBtn.innerText = "🎤 按住說話";
-            let trans = e.results[0][0].transcript.trim();
-            let targetJp = getFullJp(activeItem);
-            // 辨識只要包含日文漢字、或假名，就給過
-            let isCorrect = trans.includes(targetJp) || trans.includes(activeItem.kana) || trans.replace(/\s/g, '') === activeItem.kana;
-            processResult(isCorrect, { type: 'text', value: trans });
-        };
+        if (recognition) {
+            recognition.onresult = (e) => {
+                micBtn.innerText = "🎤 按住說話";
+                let trans = e.results[0][0].transcript.trim();
+                let targetJp = getFullJp(activeItem);
+                let isCorrect = trans.includes(targetJp) || trans.includes(activeItem.kana) || trans.replace(/\s/g, '') === activeItem.kana;
+                processResult(isCorrect, { type: 'text', value: trans });
+            };
+            recognition.onerror = () => { micBtn.innerText = "🎤 按住說話"; };
+            recognition.onend = () => { micBtn.innerText = "🎤 按住說話"; };
+        }
 
     } else if (currentMode === 'audioMatch') {
         document.getElementById('question-mode-label').innerText = "🎧 盲聽配對 (找出正確發音)";
         wordDisplay.innerText = displayWord;
         wordDisplay.style.fontSize = displayWord.length > 10 ? "2rem" : "3rem";
 
-        let options = [{ item: activeItem, isCorrect: true }];
-        let others = currentPool.filter(w => w !== activeItem).sort(() => 0.5 - Math.random()).slice(0, 3);
-        others.forEach(o => options.push({ item: o, isCorrect: false }));
-        options.sort(() => 0.5 - Math.random());
+        let options = getOptionsFor(activeItem);
 
         options.forEach((opt) => {
             let row = document.createElement('div');
@@ -398,7 +727,6 @@ function renderTestUI() {
             let playBtn = document.createElement('button');
             playBtn.className = 'play-audio-btn';
             playBtn.innerHTML = "🔊";
-            // 改回讀取原文
             playBtn.onclick = () => playTTS(getFullJp(opt.item));
 
             let selectBtn = document.createElement('button');
@@ -416,14 +744,10 @@ function renderTestUI() {
         wordDisplay.innerText = "";
         audioBtn.style.display = 'block';
         
-        // 改回讀取原文
         audioBtn.onclick = () => playTTS(getFullJp(activeItem));
         playTTS(getFullJp(activeItem));
 
-        let options = [{ item: activeItem, isCorrect: true }];
-        let others = currentPool.filter(w => w !== activeItem).sort(() => 0.5 - Math.random()).slice(0, 3);
-        others.forEach(o => options.push({ item: o, isCorrect: false }));
-        options.sort(() => 0.5 - Math.random());
+        let options = getOptionsFor(activeItem);
 
         options.forEach(opt => {
             let btn = document.createElement('button');
@@ -434,16 +758,12 @@ function renderTestUI() {
             optionsArea.appendChild(btn);
         });
 
-    } else if (currentMode === 'zhToJp') { // --- 新增：中翻日模式 ---
-        document.getElementById('question-mode-label').innerText = "🇹🇼 中翻日測驗 (選出正確日文)";
+    } else if (currentMode === 'zhToJp') {
+        document.getElementById('question-mode-label').innerText = "📃 中翻日測驗 (選出正確日文)";
         wordDisplay.innerText = activeItem.zh;
-        // 如果中文太長稍微縮小
         wordDisplay.style.fontSize = activeItem.zh.length > 10 ? "2rem" : "3rem";
 
-        let options = [{ item: activeItem, isCorrect: true }];
-        let others = currentPool.filter(w => w !== activeItem).sort(() => 0.5 - Math.random()).slice(0, 3);
-        others.forEach(o => options.push({ item: o, isCorrect: false }));
-        options.sort(() => 0.5 - Math.random());
+        let options = getOptionsFor(activeItem);
 
         options.forEach(opt => {
             let btn = document.createElement('button');
@@ -466,13 +786,17 @@ function processResult(isCorrect, userChoice) {
         currentPoints++;
         document.getElementById('result-title').innerText = "⭕ 完美命中！";
         document.getElementById('wrong-feedback-box').style.display = 'none';
+        
+        if (isDailyChallenge) {
+            localStorage.setItem('dailyPool', JSON.stringify(currentPool));
+        }
     } else {
         document.getElementById('result-title').innerText = "❌ 答錯了！";
         document.getElementById('wrong-feedback-box').style.display = 'block';
         const wrongText = document.getElementById('user-wrong-ans');
         
         if (userChoice.type === 'text') {
-            wrongText.innerText = `語音辨識為：「${userChoice.value}」`;
+            wrongText.innerText = `辨識/輸入結果為：「${userChoice.value}」`;
         } else if (userChoice.type === 'item') {
             wrongText.innerText = `${getFullJp(userChoice.value)} (${userChoice.value.kana}) - ${userChoice.value.zh}`;
         }
@@ -515,9 +839,7 @@ function processResult(isCorrect, userChoice) {
         exPos.style.display = 'none';
     }
 
-    // 解析頁也統一唸 kana 保證發音正確
     playTTS(getFullJp(activeItem));
-
     document.getElementById('next-btn').onclick = () => nextTestQuestion();
 }
 
@@ -536,20 +858,16 @@ document.addEventListener('keydown', function(event) {
 
 function checkDataAndInit(retryCount = 0) {
     const maxRetries = 50; 
-    
     if (window.appData && Object.keys(window.appData).length > 0) {
-        console.log(`課程資料載入成功，共 ${Object.keys(window.appData).length} 個課程。`);
         initThemeSelect(); 
     } else if (retryCount < maxRetries) {
         setTimeout(() => checkDataAndInit(retryCount + 1), 100);
     } else {
-        console.error("逾時：無法載入課程資料。請檢查檔案路徑或 manifest.js 設定。");
         initThemeSelect(); 
     }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    loadSettings(); 
     checkDataAndInit(); 
 });
 
@@ -570,4 +888,6 @@ function initThemeSelect() {
         option.innerText = window.appData[key].title || key;
         themeSelect.appendChild(option);
     });
+    
+    updateHomeTags();
 }
