@@ -1,7 +1,7 @@
 window.appData = window.appData || {};
 
 window.appData["N5_vocab"] = {
-    title: "JLPT_N5",
+    title: "JLPT N5",
     items: [
         // ====== 【人物、稱呼與身分】 Tag: people_and_identity ======
         { type: "vocab", level: "N5", jp: "私", kana: "わたし", romaji: "watashi", zh: "我", pos: "代名詞", pitch: "[0]", tag: "people_and_identity", example: { jp: "私は学生です。", kana: "わたしはがくせいです", romaji: "watashi wa gakusei desu", zh: "我是學生。" } },
