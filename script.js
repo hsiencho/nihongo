@@ -41,6 +41,15 @@ function getFullJp(item) {
     return item.type === 'grammar' ? item.q.replace("( ____ )", item.ans) : item.jp;
 }
 
+function getSpokenWord(item) {
+    let fullJp = getFullJp(item);
+    // 如果這個字有在修正清單中，就回傳它的 kana；否則回傳原本的日文
+    if (item.type === 'vocab' && window.ttsFixes && window.ttsFixes.includes(fullJp)) {
+        return item.kana; 
+    }
+    return fullJp;
+}
+
 function getGMT8Date() {
     const d = new Date();
     const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
@@ -121,7 +130,10 @@ fontSlider.addEventListener('input', (e) => {
     localStorage.setItem('fontScale', e.target.value);
 });
 
-document.getElementById('btn-settings').onclick = () => document.getElementById('settings-panel').style.display = 'flex';
+document.getElementById('btn-settings').onclick = (e) => {
+    if(e) e.currentTarget.blur(); // 清除焦點防止殘影
+    document.getElementById('settings-panel').style.display = 'flex';
+};
 document.getElementById('save-settings-btn').onclick = () => {
     let target = document.getElementById('target-count-input').value;
     localStorage.setItem('passTarget', target);
@@ -152,7 +164,10 @@ if (SpeechRecognition) {
 // --- 首頁導航與選單互動 ---
 document.getElementById('start-btn').onclick = () => initSession('test');
 document.getElementById('view-cards-btn').onclick = () => initSession('flashcard');
-document.getElementById('daily-btn').onclick = () => openDailyModal();
+document.getElementById('daily-btn').onclick = (e) => {
+    if(e) e.currentTarget.blur(); // 清除焦點防止殘影
+    openDailyModal();
+};
 
 document.querySelectorAll('.go-home-btn').forEach(btn => {
     btn.onclick = () => {
@@ -313,14 +328,24 @@ function startDaily(type) {
     document.getElementById('home-menu').style.display = 'none';
     currentPool = JSON.parse(localStorage.getItem('dailyPool'));
 
+    const today = getGMT8Date();
+    const isDone = localStorage.getItem('dailyChallengeDoneDate') === today;
+
     if (type === 'flashcard') {
         document.getElementById('flashcard-container').style.display = 'flex';
         sessionPool = currentPool.map(item => ({ ...item }));
         populateFlashcardTags(sessionPool);
         filterFlashcards('all');
     } else {
+        // ✨ 如果今天已經完成，將記憶體中的挑戰進度歸零以供再次遊玩 (不影響已完成狀態)
+        if (isDone) {
+            currentPool.forEach(item => {
+                item.progress = { voice: 0, audioMatch: 0, listen: 0, zhToJp: 0 };
+            });
+        }
+
         document.getElementById('game-container').style.display = 'flex';
-        document.getElementById('skip-btn').style.display = 'none'; // 挑戰隱藏跳過
+        document.getElementById('skip-btn').style.display = 'none'; 
         
         const pts = calculatePoints(currentPool);
         totalTargetPoints = pts.total;
@@ -380,10 +405,18 @@ function initSession(type) {
 let cardIndex = 0;
 
 function populateFlashcardTags(pool) {
+    const selectEl = document.getElementById('flashcard-tag-select');
+    
+    // ✨ 每日挑戰模式下強制隱藏 Tag 下拉選單
+    if (isDailyChallenge) {
+        selectEl.style.display = 'none';
+        selectEl.innerHTML = '<option value="all">全部</option>';
+        return;
+    }
+
     const tags = new Set();
     pool.forEach(item => { if (item.tag) tags.add(item.tag); });
     
-    const selectEl = document.getElementById('flashcard-tag-select');
     if (tags.size > 0) {
         selectEl.style.display = 'inline-block';
         selectEl.innerHTML = '<option value="all">全部</option>';
@@ -518,8 +551,10 @@ function playAudioCard(type, event) {
                  ? activeItem : currentPool[cardIndex];
                  
     if ((type === 'word' || type === 'test-word') && getFullJp(item)) {
-        playTTS(getFullJp(item)); 
+        // ✨ 單字發音：套用修正邏輯
+        playTTS(getSpokenWord(item)); 
     } else if ((type === 'example' || type === 'test-example') && item.example && item.example.jp) {
+        // ✨ 例句發音：直接唸原本的字串，不處理修正
         playTTS(item.example.jp); 
     }
 }
@@ -704,10 +739,35 @@ function renderTestUI() {
         if (recognition) {
             recognition.onresult = (e) => {
                 micBtn.innerText = "🎤 按住說話";
-                let trans = e.results[0][0].transcript.trim();
-                let targetJp = getFullJp(activeItem);
-                let isCorrect = trans.includes(targetJp) || trans.includes(activeItem.kana) || trans.replace(/\s/g, '') === activeItem.kana;
-                processResult(isCorrect, { type: 'text', value: trans });
+                
+                // 1. 取得辨識結果與標準答案，並移除所有空格
+                let originalTrans = e.results[0][0].transcript.trim();
+                let trans = originalTrans.replace(/\s/g, ''); 
+                let targetJp = getFullJp(activeItem).replace(/\s/g, '');
+                let targetKana = activeItem.kana.replace(/\s/g, '');
+
+                // 2. 建立一個小工具：把字串裡面的「片假名」全部轉成「平假名」
+                const toHira = (str) => {
+                    return str.replace(/[\u30a1-\u30f6]/g, match => 
+                        String.fromCharCode(match.charCodeAt(0) - 0x60)
+                    );
+                };
+
+                // 3. 雙重比對邏輯
+                // 第一層：原汁原味比對（命中漢字，或本來就是片假名的外來語如 パン）
+                let isCorrect = trans.includes(targetJp) || trans.includes(targetKana);
+
+                // 第二層：如果第一層沒中，就把雙方都轉成平假名再比對一次（救援タベル -> たべる的情況）
+                if (!isCorrect) {
+                    let hiraTrans = toHira(trans);
+                    let hiraJp = toHira(targetJp);
+                    let hiraKana = toHira(targetKana);
+                    
+                    isCorrect = hiraTrans.includes(hiraJp) || hiraTrans.includes(hiraKana);
+                }
+                
+                // 4. 傳送結果 (把最原始的 originalTrans 傳進去，這樣畫面上才會顯示系統原本聽到什麼)
+                processResult(isCorrect, { type: 'text', value: originalTrans });
             };
             recognition.onerror = () => { micBtn.innerText = "🎤 按住說話"; };
             recognition.onend = () => { micBtn.innerText = "🎤 按住說話"; };
@@ -727,7 +787,7 @@ function renderTestUI() {
             let playBtn = document.createElement('button');
             playBtn.className = 'play-audio-btn';
             playBtn.innerHTML = "🔊";
-            playBtn.onclick = () => playTTS(getFullJp(opt.item));
+            playBtn.onclick = () => playTTS(getSpokenWord(opt.item));
 
             let selectBtn = document.createElement('button');
             selectBtn.className = 'select-ans-btn';
@@ -744,8 +804,8 @@ function renderTestUI() {
         wordDisplay.innerText = "";
         audioBtn.style.display = 'block';
         
-        audioBtn.onclick = () => playTTS(getFullJp(activeItem));
-        playTTS(getFullJp(activeItem));
+        audioBtn.onclick = () => playTTS(getSpokenWord(activeItem));
+        playTTS(getSpokenWord(activeItem));
 
         let options = getOptionsFor(activeItem);
 
@@ -839,7 +899,7 @@ function processResult(isCorrect, userChoice) {
         exPos.style.display = 'none';
     }
 
-    playTTS(getFullJp(activeItem));
+    playTTS(getSpokenWord(activeItem));
     document.getElementById('next-btn').onclick = () => nextTestQuestion();
 }
 
