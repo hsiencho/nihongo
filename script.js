@@ -466,7 +466,13 @@ function renderCard() {
     
     let backJpText = getFullJp(item);
     let cardJpBack = document.getElementById('card-jp-back');
-    cardJpBack.innerText = backJpText;
+    
+    // 套用 Ruby 標籤
+    if (item.type !== 'grammar') {
+        cardJpBack.innerHTML = createRubyHTML(backJpText, item.kana);
+    } else {
+        cardJpBack.innerText = backJpText;
+    }
     cardJpBack.style.fontSize = backJpText.length > 8 ? "2.2rem" : "3.5rem";
     
     const posBadge = document.getElementById('card-pos-back');
@@ -950,4 +956,60 @@ function initThemeSelect() {
     });
     
     updateHomeTags();
+}
+
+function createRubyHTML(jp, kana) {
+    if (!jp || !kana) return jp || '';
+    if (jp === kana) return jp; // 純假名直接回傳
+
+    try {
+        // 1. 拆分漢字與假名
+        // 🛠️ 關鍵修正：加上 .filter(Boolean) 徹底清除空字串，防止陣列索引錯位！
+        let parts = jp.split(/([\u3040-\u30FF\u30FC]+)/).filter(Boolean);
+        
+        let regexPattern = "^";
+        let isKanjiBlock = [];
+        
+        // 2. 自動生成對比模板
+        for (let i = 0; i < parts.length; i++) {
+            if (/^[\u3040-\u30FF\u30FC]+$/.test(parts[i])) {
+                regexPattern += parts[i];
+                isKanjiBlock.push(false);
+            } else {
+                regexPattern += "(.*?)";
+                isKanjiBlock.push(true);
+            }
+        }
+        regexPattern += "$"; 
+        
+        // 3. 拿模板去套用標準答案的 Kana
+        let regex = new RegExp(regexPattern);
+        let match = kana.match(regex);
+        
+        // 4. 完美吻合時，填入標準 Ruby 標籤
+        if (match) {
+            let html = "";
+            let captureIndex = 1; 
+            
+            for (let i = 0; i < parts.length; i++) {
+                if (isKanjiBlock[i]) {
+                    let reading = match[captureIndex];
+                    captureIndex++;
+                    if (reading) {
+                        html += `<ruby>${parts[i]}<rt style="font-size: 0.4em; color: var(--text-muted); font-weight: bold;">${reading}</rt></ruby>`;
+                    } else {
+                        html += parts[i];
+                    }
+                } else {
+                    html += parts[i]; 
+                }
+            }
+            return html;
+        }
+    } catch(e) {
+        console.error("Ruby標籤生成失敗，退回預設顯示:", e);
+    }
+
+    // 5. 例外情況防呆：退回整包標註
+    return `<ruby>${jp}<rt style="font-size: 0.4em; color: var(--text-muted); font-weight: bold;">${kana}</rt></ruby>`;
 }
