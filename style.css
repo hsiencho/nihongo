@@ -50,9 +50,9 @@ html {
 .hud { display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; background: var(--card-bg); border-radius: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); font-weight: bold; margin-bottom: 12px; flex-shrink: 0;}
 
 /* 元件與按鈕 */
-.icon-btn { background: none; border: none; font-size: 1.2rem; cursor: pointer; padding: 5px 10px; border-radius: 8px; transition: 0.2s; }
+.icon-btn { background: none; border: none; font-size: 1.2rem; cursor: pointer; padding: 5px 10px; border-radius: 8px; transition: 0.2s; -webkit-tap-highlight-color: transparent;}
 .icon-btn:hover { background: #dfe6e9; }
-.action-btn { background: var(--primary); color: white; border: none; padding: 12px 20px; border-radius: 12px; font-size: 1.1rem; cursor: pointer; font-weight: bold; transition: 0.2s; }
+.action-btn { background: var(--primary); color: white; border: none; padding: 12px 20px; border-radius: 12px; font-size: 1.1rem; cursor: pointer; font-weight: bold; transition: 0.2s; -webkit-tap-highlight-color: transparent;}
 .action-btn:active { transform: scale(0.96); }
 .full-width { width: 100%; margin-top: 15px; }
 
@@ -292,7 +292,7 @@ hr { border: 0; border-top: 2px solid var(--border-color); margin: 1.5rem 0; }
     right: 8px; /* 固定在距離右邊 8px 的位置 */
     top: 50%;
     transform: translateY(-50%); /* 垂直置中 */
-    background: rgba(255, 255, 255, 0.4); /* 半透明底色，讓它看起來是個小按鈕 */
+    background: rgba(255, 255, 255, 0.0); /* 半透明底色，讓它看起來是個小按鈕 */
     border: none;
     border-radius: 8px;
     padding: 6px 10px;
@@ -300,10 +300,11 @@ hr { border: 0; border-top: 2px solid var(--border-color); margin: 1.5rem 0; }
     cursor: pointer;
     z-index: 10;
     transition: 0.2s;
+    -webkit-tap-highlight-color: transparent;
 }
-.overlay-icon-btn:hover {
+/*.overlay-icon-btn:hover {
     background: rgba(255, 255, 255, 0.8);
-}
+}*/
 
 /* 疊加在右側的純文字標籤 (每日挑戰狀態 ❌/✅) */
 .overlay-icon-text {
