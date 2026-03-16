@@ -33,7 +33,20 @@ const tagMap = {
     "verbs": "核心動詞",
     "pronouns_and_interrogatives": "指示詞與疑問詞",
     "nature_and_weather": "自然與天氣",
-    "transportation_and_movement": "交通與移動"
+    "transportation_and_movement": "交通與移動",
+    "people_and_occupations": "人物、稱呼與職業",
+    "animals_plants_nature": "動植物與自然景觀",
+    "weather_seasons_geography": "天氣、季節與地理",
+    "food_and_cooking": "飲食與料理",
+    "transportation_and_places": "交通、旅行與地點",
+    "home_and_facilities": "居家、建築與生活設施",
+    "objects_and_clothing": "物品、工具與衣著",
+    "school_and_work": "學校、學習與職場",
+    "verbs": "動作與行為 (動詞)",
+    "adjectives_and_states": "情感、狀態與性質 (形容詞等)",
+    "time_and_frequency": "時間與頻率",
+    "abstract_concepts": "其他抽象名詞與概念",
+    "adverbs_and_grammar": "副詞、接續詞、文法用語與慣用語"
 };
 
 function getFullJp(item) {
